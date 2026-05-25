@@ -47,6 +47,8 @@ export const useGenomeStore = defineStore("genome", () => {
 
   // Camera drill-down request (consumed by the viewer)
   const focusChrId = ref<string | null>(null);
+  // Cinematic intro trigger (bumped to replay)
+  const introNonce = ref(0);
 
   const mutatedIds = computed(() => (current.value ? mutatedGeneIds(current.value) : new Set<string>()));
   const chromosomes = computed(() => current.value?.chromosomes ?? []);
@@ -91,6 +93,10 @@ export const useGenomeStore = defineStore("genome", () => {
 
   function focusChromosome(chromosomeId: string): void {
     focusChrId.value = chromosomeId;
+  }
+
+  function playIntro(): void {
+    introNonce.value++;
   }
 
   /** LOD drill-down: fetch a detailed region for an Ensembl chromosome. */
@@ -283,10 +289,10 @@ export const useGenomeStore = defineStore("genome", () => {
   return {
     catalog, current, selectedGene, selectedGeneId, activePanel, backend, busy, status, error,
     seed, mutationCount, generations, mixPartner,
-    morphTargetId, morphTargetGenome, morphT, focusChrId,
+    morphTargetId, morphTargetGenome, morphT, focusChrId, introNonce,
     mutatedIds, chromosomes, geneList, references, creations,
     init, loadGenome, adoptGenome, selectGene, refreshCatalog, setMorphTarget,
-    focusChromosome, drillChromosome,
+    focusChromosome, drillChromosome, playIntro,
     mutateSelected, duplicateSelected, deleteSelected, resetCurrent,
     makeVariant, evolveCurrent, mixWith, importCsv, loadEnsembl, saveCurrent, deleteFromCatalog,
   };

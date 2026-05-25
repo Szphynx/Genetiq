@@ -128,6 +128,7 @@ export class GenetiqEngine {
   private ringRadius = 12;
   private morphT = 0;
   private morphActive = false;
+  private introTimers: number[] = [];
   private callbacks: EngineCallbacks = {};
   private pointerDown: { x: number; y: number } | null = null;
 
@@ -533,6 +534,37 @@ export class GenetiqEngine {
     this.animateCamera(node.getAbsolutePosition().clone(), 12, Math.PI / 2.4);
   }
 
+  /** Cinematic fly-through: genome → chromosome → gene → base pairs. */
+  playIntro(): void {
+    this.clearIntro();
+    const it = this.geneLookup.entries().next();
+    const first = it.done ? null : it.value;
+
+    this.idleSpin = false;
+    this.setSelected(null);
+    this.setFocusChromosome(null);
+    this.camera.radius = this.ringRadius * 3.4 + 26;
+    this.camera.beta = Math.PI / 2.05;
+
+    const overviewRadius = this.ringRadius * 2.3 + 14;
+    this.introTimers.push(
+      window.setTimeout(() => this.animateCamera(Vector3.Zero(), overviewRadius, Math.PI / 2.25), 150),
+    );
+    if (first) {
+      const [geneId, entry] = first;
+      this.introTimers.push(window.setTimeout(() => this.focusChromosome(entry.chrId), 2100));
+      // Route through onPick so the store selects the gene (card + inspector).
+      this.introTimers.push(window.setTimeout(() => this.callbacks.onPick?.(geneId), 4300));
+    } else {
+      this.introTimers.push(window.setTimeout(() => this.focusOverview(), 2100));
+    }
+  }
+
+  private clearIntro(): void {
+    for (const t of this.introTimers) clearTimeout(t);
+    this.introTimers = [];
+  }
+
   private worldPosOf(geneId: string): Vector3 | null {
     const entry = this.geneLookup.get(geneId);
     if (!entry) return null;
@@ -609,6 +641,7 @@ export class GenetiqEngine {
   }
 
   private clearGenome(): void {
+    this.clearIntro();
     this.halo.setEnabled(false);
     this.halo.parent = null;
     this.halo.visibility = 1;

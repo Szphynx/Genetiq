@@ -56,6 +56,7 @@ function overview(): void {
 
     <div class="spacer" />
 
+    <button class="ghost" @click="store.playIntro()">▶ Intro</button>
     <button class="ghost" @click="overview">⤢ Overview</button>
 
     <nav class="tabs">

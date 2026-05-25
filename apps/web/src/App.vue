@@ -5,6 +5,7 @@ import { BIOTYPE_PALETTE, rgbToHex } from "@genetiq/core";
 import { useGenomeStore } from "@/stores/genome";
 import GenomeViewer from "@/components/GenomeViewer.vue";
 import TopBar from "@/components/TopBar.vue";
+import HudOverlay from "@/components/HudOverlay.vue";
 import GenePanel from "@/components/GenePanel.vue";
 import StudioPanel from "@/components/StudioPanel.vue";
 import GalleryPanel from "@/components/GalleryPanel.vue";
@@ -49,6 +50,8 @@ onMounted(() => void store.init());
         <span>{{ readout.backend }}</span>
       </div>
     </div>
+
+    <HudOverlay />
 
     <aside class="drawer glass scroll">
       <GenePanel v-show="store.activePanel === 'inspect'" />
@@ -189,7 +192,7 @@ onMounted(() => void store.init());
 
 .toast {
   position: fixed;
-  bottom: 18px;
+  bottom: 78px;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(127, 232, 192, 0.1);

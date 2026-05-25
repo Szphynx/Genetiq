@@ -11,6 +11,7 @@ const card = reactive<CardScreenInfo>({ x: 0, y: 0, visible: false });
 const ready = ref(false);
 let engine: GenetiqEngine | null = null;
 let lastRenderedId = "";
+let introPlayed = false;
 
 function render(): void {
   if (!engine || !ready.value || !store.current) return;
@@ -22,6 +23,10 @@ function render(): void {
     selectedGeneId: store.selectedGeneId,
     resetCamera: reset,
   });
+  if (!introPlayed) {
+    introPlayed = true;
+    engine.playIntro();
+  }
 }
 
 onMounted(async () => {
@@ -63,6 +68,13 @@ watch(
       engine.focusChromosome(chrId);
       store.focusChrId = null;
     }
+  },
+);
+
+watch(
+  () => store.introNonce,
+  () => {
+    if (engine && ready.value) engine.playIntro();
   },
 );
 
