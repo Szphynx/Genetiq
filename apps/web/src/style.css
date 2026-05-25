@@ -225,6 +225,17 @@ select option {
   transform: translateY(0);
 }
 
+/* Generic fade (used by modals/overlays across components) */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
 /* Smooth panel + card transitions */
 .panel-enter-active,
 .panel-leave-active {
@@ -371,4 +382,110 @@ select option {
   text-transform: uppercase;
   letter-spacing: 0.03em;
   font-size: 13px;
+}
+
+/* ---- Dossier component overrides (global so child selectors compile) ---- */
+[data-theme="dossier"] .genome-head__title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.06em;
+}
+
+[data-theme="dossier"] .gene__symbol {
+  font-family: var(--font-display);
+  font-size: 20px;
+}
+
+[data-theme="dossier"] .stat {
+  border: 1px solid var(--line);
+  padding: 2px 7px;
+}
+
+[data-theme="dossier"] .kv {
+  gap: 0;
+  border: 1px solid var(--line);
+  font-size: 15px;
+}
+
+[data-theme="dossier"] .kv > * {
+  padding: 3px 9px;
+  border-bottom: 1px solid rgba(122, 182, 255, 0.22);
+}
+
+[data-theme="dossier"] .kv > .label {
+  background: rgba(122, 182, 255, 0.12);
+  color: var(--text);
+  border-right: 1px solid rgba(122, 182, 255, 0.22);
+  display: flex;
+  align-items: center;
+}
+
+[data-theme="dossier"] .kv > :not(.label) {
+  text-align: right;
+}
+
+[data-theme="dossier"] .disease {
+  border-radius: 0;
+  background: rgba(122, 182, 255, 0.06);
+  border-color: var(--line);
+}
+
+[data-theme="dossier"] .empty {
+  border-radius: 0;
+}
+
+[data-theme="dossier"] .expr__bar {
+  border-radius: 0;
+  border: 1px solid var(--line);
+  background: transparent;
+}
+
+[data-theme="dossier"] .hud::before {
+  content: "";
+  position: fixed;
+  inset: 13px;
+  border: 1px solid var(--line);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+[data-theme="dossier"] .hud-corner {
+  width: 30px;
+  height: 30px;
+  opacity: 0.9;
+}
+
+[data-theme="dossier"] .legend__dot {
+  border-radius: 0;
+}
+
+[data-theme="dossier"] .hud-readout {
+  color: var(--accent-dim);
+  letter-spacing: 0.18em;
+}
+
+[data-theme="dossier"] .toast {
+  border-radius: 0;
+}
+
+[data-theme="dossier"] .switch,
+[data-theme="dossier"] .switch .knob {
+  border-radius: 0;
+}
+
+/* ---- Optional-effect gates (driven by settings) ---- */
+[data-crt="off"] body::after {
+  display: none;
+}
+
+[data-motion="reduced"] body::after {
+  animation: none !important;
+}
+
+[data-motion="reduced"] *,
+[data-motion="reduced"] *::before,
+[data-motion="reduced"] *::after {
+  animation-duration: 0.001s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.08s !important;
 }

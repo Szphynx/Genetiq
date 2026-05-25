@@ -3,14 +3,19 @@ import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from "vue";
 import type { GeneBiotype } from "@genetiq/core";
 import { BIOTYPE_PALETTE, rgbToHex } from "@genetiq/core";
 import { useGenomeStore, type Panel } from "@/stores/genome";
+import { useSettingsStore } from "@/stores/settings";
 import GenomeViewer from "@/components/GenomeViewer.vue";
 import TopBar from "@/components/TopBar.vue";
 import HudOverlay from "@/components/HudOverlay.vue";
 import GenePanel from "@/components/GenePanel.vue";
 import StudioPanel from "@/components/StudioPanel.vue";
 import GalleryPanel from "@/components/GalleryPanel.vue";
+import SettingsPanel from "@/components/SettingsPanel.vue";
+import BootSequence from "@/components/BootSequence.vue";
 
 const store = useGenomeStore();
+const settings = useSettingsStore();
+const booting = ref(false);
 
 const panelComponent = computed(() =>
   store.activePanel === "studio" ? StudioPanel : store.activePanel === "gallery" ? GalleryPanel : GenePanel,
@@ -52,7 +57,11 @@ const onMq = (e: MediaQueryListEvent | MediaQueryList): void => {
 };
 
 watchEffect(() => {
-  document.documentElement.setAttribute("data-theme", store.theme);
+  const el = document.documentElement;
+  el.dataset.theme = settings.s.theme;
+  el.dataset.crt = settings.s.crt ? "on" : "off";
+  el.dataset.print = settings.s.printFilter ? "on" : "off";
+  el.dataset.motion = settings.s.reducedMotion ? "reduced" : "full";
 });
 
 onMounted(() => {
@@ -60,6 +69,10 @@ onMounted(() => {
   mq = window.matchMedia("(max-width: 760px)");
   onMq(mq);
   mq.addEventListener("change", onMq);
+  if (settings.s.bootSequence && !settings.s.reducedMotion) {
+    booting.value = true;
+    window.setTimeout(() => (booting.value = false), 2000);
+  }
 });
 onBeforeUnmount(() => mq?.removeEventListener("change", onMq));
 </script>
@@ -126,6 +139,12 @@ onBeforeUnmount(() => mq?.removeEventListener("change", onMq));
     </transition>
     <transition name="fade">
       <div v-if="store.busy" class="busy mono"><span class="spinner" /> PROCESSING</div>
+    </transition>
+
+    <div v-if="settings.s.printFilter" class="print-overlay" />
+    <SettingsPanel />
+    <transition name="fade">
+      <BootSequence v-if="booting" />
     </transition>
   </div>
 </template>
@@ -401,32 +420,18 @@ onBeforeUnmount(() => mq?.removeEventListener("change", onMq));
   }
 }
 
-/* ---- Dossier theme touches ---- */
-:global([data-theme="dossier"]) .hud::before {
-  content: "";
+/* Halftone / print-dither overlay on the scene (optional setting) */
+.print-overlay {
   position: fixed;
-  inset: 13px;
-  border: 1px solid var(--line);
-  opacity: 0.4;
+  inset: 0;
+  z-index: 6;
   pointer-events: none;
-}
-
-:global([data-theme="dossier"]) .hud-corner {
-  width: 30px;
-  height: 30px;
-  opacity: 0.9;
-}
-
-:global([data-theme="dossier"]) .legend__dot {
-  border-radius: 0;
-}
-
-:global([data-theme="dossier"]) .hud-readout {
-  color: var(--accent-dim);
-  letter-spacing: 0.18em;
-}
-
-:global([data-theme="dossier"]) .toast {
-  border-radius: 0;
+  mix-blend-mode: overlay;
+  opacity: 0.5;
+  background-image:
+    radial-gradient(circle at center, rgba(0, 0, 0, 0.9) 0.6px, transparent 1.1px),
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.5) 0.4px, transparent 1px);
+  background-size: 3px 3px, 3px 3px;
+  background-position: 0 0, 1.5px 1.5px;
 }
 </style>

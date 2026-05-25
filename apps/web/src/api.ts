@@ -1,6 +1,8 @@
 import type { Gene, Genome, GenomeSummary, MutationType } from "@genetiq/core";
 
-const BASE = "/api";
+// Configurable so the SPA can talk to a same-origin /api (default), a Vercel
+// rewrite, or a separately-hosted API via VITE_API_URL at build time.
+const BASE = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
 
 async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {

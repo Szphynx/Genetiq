@@ -13,6 +13,7 @@
     "dev": "pnpm build:core && concurrently -n core,api,web -c magenta,blue,green \"pnpm --filter @genetiq/core dev\" \"pnpm --filter @genetiq/api dev\" \"pnpm --filter @genetiq/web dev\"",
     "dev:api": "pnpm --filter @genetiq/api dev",
     "dev:web": "pnpm --filter @genetiq/web dev",
+    "start": "GENETIQ_SERVE_WEB=true node apps/api/dist/server.js",
     "typecheck": "pnpm -r typecheck",
     "clean": "pnpm -r exec rm -rf dist node_modules/.cache && rm -rf node_modules"
   },

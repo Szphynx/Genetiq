@@ -10,6 +10,16 @@
       href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&family=Inter:wght@300;400;500&display=swap"
       rel="stylesheet"
     />
+    <script>
+      // Apply saved theme/CRT before first paint to avoid a flash.
+      try {
+        var st = JSON.parse(localStorage.getItem("genetiq.settings.v1") || "{}");
+        var el = document.documentElement;
+        el.dataset.theme = st.theme || "dossier";
+        el.dataset.crt = st.crt === false ? "off" : "on";
+        el.dataset.motion = st.reducedMotion ? "reduced" : "full";
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="app"></div>

@@ -4,8 +4,20 @@ import type { Genome } from "@genetiq/core";
 import { BIOTYPE_PALETTE, rgbToHex } from "@genetiq/core";
 import { GenetiqEngine, type CardScreenInfo } from "@/engine/GenetiqEngine";
 import { useGenomeStore } from "@/stores/genome";
+import { useSettingsStore } from "@/stores/settings";
 
 const store = useGenomeStore();
+const settings = useSettingsStore();
+
+function applyEffects(): void {
+  if (!engine) return;
+  engine.setEffects({
+    bloom: settings.s.bloom,
+    grain: settings.s.grain,
+    chromaticAberration: settings.s.chromaticAberration,
+  });
+  engine.setReducedMotion(settings.s.reducedMotion);
+}
 const canvas = ref<HTMLCanvasElement | null>(null);
 const card = reactive<CardScreenInfo>({ x: 0, y: 0, visible: false });
 const ready = ref(false);
@@ -25,7 +37,7 @@ function render(): void {
   });
   if (!introPlayed) {
     introPlayed = true;
-    engine.playIntro();
+    if (settings.s.introAutoplay && !settings.s.reducedMotion) engine.playIntro();
   }
 }
 
@@ -41,10 +53,16 @@ onMounted(async () => {
     onReady: (backend) => {
       store.backend = backend;
       ready.value = true;
+      applyEffects();
       render();
     },
   });
 });
+
+watch(
+  () => [settings.s.bloom, settings.s.grain, settings.s.chromaticAberration, settings.s.reducedMotion],
+  () => applyEffects(),
+);
 
 watch(
   () => store.current,

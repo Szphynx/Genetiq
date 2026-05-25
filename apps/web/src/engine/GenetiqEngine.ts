@@ -135,6 +135,7 @@ export class GenetiqEngine {
   private introTimers: number[] = [];
   private introActive = false;
   private orbitSpeed = 0;
+  private reducedMotion = false;
   private callbacks: EngineCallbacks = {};
   private pointerDown: { x: number; y: number } | null = null;
 
@@ -534,6 +535,25 @@ export class GenetiqEngine {
   setMorphT(t: number): void {
     this.morphT = clamp(t, 0, 1);
   }
+
+  /** Toggle post-process effects (driven by user settings). */
+  setEffects(opts: { bloom?: boolean; grain?: boolean; chromaticAberration?: boolean }): void {
+    if (opts.bloom !== undefined) this.glow.intensity = opts.bloom ? 0.65 : 0;
+    if (this.pipeline) {
+      if (opts.grain !== undefined) this.pipeline.grainEnabled = opts.grain;
+      if (opts.chromaticAberration !== undefined) {
+        this.pipeline.chromaticAberrationEnabled = opts.chromaticAberration;
+      }
+    }
+  }
+
+  setReducedMotion(reduced: boolean): void {
+    this.reducedMotion = reduced;
+    if (reduced) {
+      this.idleSpin = false;
+      this.orbitSpeed = 0;
+    }
+  }
   clearMorph(): void {
     this.morphActive = false;
     this.morphT = 0;
@@ -660,8 +680,8 @@ export class GenetiqEngine {
   private update(): void {
     const dt = this.engine.getDeltaTime() / 1000;
     this.elapsed += dt;
-    if (this.idleSpin) this.root.rotation.y += dt * 0.06;
-    if (this.orbitSpeed !== 0) this.camera.alpha += dt * this.orbitSpeed;
+    if (this.idleSpin && !this.reducedMotion) this.root.rotation.y += dt * 0.06;
+    if (this.orbitSpeed !== 0 && !this.reducedMotion) this.camera.alpha += dt * this.orbitSpeed;
 
     // Adaptive depth of field: deep focus (everything crisp) when zoomed out,
     // shallow (cinematic background fall-off) only when framed close on a gene.
@@ -672,8 +692,12 @@ export class GenetiqEngine {
     }
 
     if (this.halo.isEnabled()) {
-      this.halo.scaling.setAll(1 + Math.sin(this.elapsed * 4) * 0.07);
-      this.halo.rotation.z += dt * 0.5;
+      if (this.reducedMotion) {
+        this.halo.scaling.setAll(1);
+      } else {
+        this.halo.scaling.setAll(1 + Math.sin(this.elapsed * 4) * 0.07);
+        this.halo.rotation.z += dt * 0.5;
+      }
     }
 
     if (this.morphActive && !this.dense) {

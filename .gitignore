@@ -27,3 +27,6 @@ pnpm-debug.log*
 .cache/
 .vite/
 coverage/
+
+# Vercel
+.vercel/

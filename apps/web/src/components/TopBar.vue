@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useGenomeStore, type Panel } from "@/stores/genome";
+import { useSettingsStore } from "@/stores/settings";
 
 const store = useGenomeStore();
+const settings = useSettingsStore();
 
 const currentId = computed<string>({
   get: () => store.current?.id ?? "",
@@ -59,9 +61,12 @@ function overview(): void {
     <button
       class="ghost icon-btn"
       v-tip="'Switch interface theme (Dossier / Holo)'"
-      @click="store.toggleTheme()"
+      @click="settings.toggleTheme()"
     >
-      <span class="ico">▣</span><span class="hide-sm"> {{ store.theme === "dossier" ? "Dossier" : "Holo" }}</span>
+      <span class="ico">▣</span><span class="hide-sm"> {{ settings.s.theme === "dossier" ? "Dossier" : "Holo" }}</span>
+    </button>
+    <button class="ghost icon-btn" aria-label="Settings" v-tip="'Settings'" @click="settings.open = true">
+      <span class="ico">⚙</span>
     </button>
     <button class="ghost icon-btn" v-tip="'Play the cinematic fly-through'" @click="store.playIntro()">
       <span class="ico">▶</span><span class="hide-sm"> Intro</span>
