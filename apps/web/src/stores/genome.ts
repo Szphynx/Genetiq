@@ -31,6 +31,22 @@ export const useGenomeStore = defineStore("genome", () => {
   const activePanel = ref<Panel>("inspect");
   const sheetOpen = ref(false); // mobile bottom-sheet open state
   const backend = ref<string>("");
+
+  type Theme = "dossier" | "holo";
+  const storedTheme =
+    typeof localStorage !== "undefined" ? (localStorage.getItem("genetiq-theme") as Theme | null) : null;
+  const theme = ref<Theme>(storedTheme === "holo" ? "holo" : "dossier");
+  function setTheme(t: Theme): void {
+    theme.value = t;
+    try {
+      localStorage.setItem("genetiq-theme", t);
+    } catch {
+      /* ignore */
+    }
+  }
+  function toggleTheme(): void {
+    setTheme(theme.value === "dossier" ? "holo" : "dossier");
+  }
   const busy = ref(false);
   const status = ref<string>("");
   const error = ref<string | null>(null);
@@ -291,6 +307,7 @@ export const useGenomeStore = defineStore("genome", () => {
 
   return {
     catalog, current, selectedGene, selectedGeneId, activePanel, sheetOpen, backend, busy, status, error,
+    theme, setTheme, toggleTheme,
     seed, mutationCount, generations, mixPartner,
     morphTargetId, morphTargetGenome, morphT, focusChrId, introNonce,
     mutatedIds, chromosomes, geneList, references, creations,

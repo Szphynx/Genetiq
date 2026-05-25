@@ -5,15 +5,36 @@ import { useGenomeStore } from "@/stores/genome";
 const store = useGenomeStore();
 const frame = ref(0);
 const signal = ref(0.5);
+const samples = ref<number[]>(new Array(56).fill(0.5));
 const start = performance.now();
 let raf = 0;
 
 function loop(): void {
   frame.value++;
   const t = (performance.now() - start) / 1000;
-  signal.value = 0.5 + Math.sin(t * 1.7) * 0.32 + Math.sin(t * 5.3) * 0.12;
+  signal.value = 0.5 + Math.sin(t * 1.7) * 0.3 + Math.sin(t * 5.3) * 0.12;
+  if (frame.value % 2 === 0) {
+    samples.value = [...samples.value.slice(1), signal.value];
+  }
   raf = requestAnimationFrame(loop);
 }
+
+const SCOPE_W = 110;
+const SCOPE_H = 30;
+const wave = computed(() => {
+  const n = samples.value.length;
+  return samples.value
+    .map((v, i) => `${((i / (n - 1)) * SCOPE_W).toFixed(1)},${(SCOPE_H - v * (SCOPE_H - 3) - 1.5).toFixed(1)}`)
+    .join(" ");
+});
+const digits = computed(() => {
+  const b = frame.value;
+  let out = "";
+  for (let i = 0; i < 13; i++) {
+    out += ((b * 7 + i * 53) % 256).toString(16).padStart(2, "0").toUpperCase() + " ";
+  }
+  return out.trim();
+});
 onMounted(() => {
   raf = requestAnimationFrame(loop);
 });
@@ -78,6 +99,17 @@ const caret = computed(() => {
     </svg>
 
     <div class="console mono">
+      <div class="scope" v-tip="'Live activity waveform'">
+        <svg viewBox="0 0 110 30" preserveAspectRatio="none">
+          <g class="grid">
+            <line v-for="gx in 7" :key="'x' + gx" :x1="gx * 13.75" y1="0" :x2="gx * 13.75" y2="30" />
+            <line v-for="gy in 2" :key="'y' + gy" x1="0" :y1="gy * 10" x2="110" :y2="gy * 10" />
+          </g>
+          <polyline :points="wave" class="trace" />
+        </svg>
+        <div class="digits">{{ digits }}</div>
+      </div>
+
       <div class="gauge" v-for="g in gauges" :key="g.label" v-tip="gaugeTip(g.label)">
         <svg viewBox="0 0 44 44">
           <circle cx="22" cy="22" r="18" class="track" />
@@ -165,6 +197,38 @@ const caret = computed(() => {
   display: flex;
   align-items: center;
   gap: 20px;
+}
+
+.scope {
+  width: 124px;
+}
+
+.scope svg {
+  width: 124px;
+  height: 34px;
+  display: block;
+}
+
+.scope .grid line {
+  stroke: rgba(143, 227, 255, 0.14);
+  stroke-width: 0.5;
+}
+
+.scope .trace {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1;
+  filter: drop-shadow(0 0 2px rgba(143, 227, 255, 0.6));
+}
+
+.scope .digits {
+  margin-top: 3px;
+  font-size: 7px;
+  letter-spacing: 0.06em;
+  color: var(--accent-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
 }
 
 .gauge {

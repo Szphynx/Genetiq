@@ -56,6 +56,13 @@ function overview(): void {
 
     <div class="spacer" />
 
+    <button
+      class="ghost icon-btn"
+      v-tip="'Switch interface theme (Dossier / Holo)'"
+      @click="store.toggleTheme()"
+    >
+      <span class="ico">▣</span><span class="hide-sm"> {{ store.theme === "dossier" ? "Dossier" : "Holo" }}</span>
+    </button>
     <button class="ghost icon-btn" v-tip="'Play the cinematic fly-through'" @click="store.playIntro()">
       <span class="ico">▶</span><span class="hide-sm"> Intro</span>
     </button>

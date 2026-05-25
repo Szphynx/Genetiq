@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from "vue";
 import type { GeneBiotype } from "@genetiq/core";
 import { BIOTYPE_PALETTE, rgbToHex } from "@genetiq/core";
 import { useGenomeStore, type Panel } from "@/stores/genome";
@@ -50,6 +50,10 @@ let mq: MediaQueryList | null = null;
 const onMq = (e: MediaQueryListEvent | MediaQueryList): void => {
   isMobile.value = e.matches;
 };
+
+watchEffect(() => {
+  document.documentElement.setAttribute("data-theme", store.theme);
+});
 
 onMounted(() => {
   void store.init();
@@ -395,5 +399,34 @@ onBeforeUnmount(() => mq?.removeEventListener("change", onMq));
     font-size: 15px;
     line-height: 1;
   }
+}
+
+/* ---- Dossier theme touches ---- */
+:global([data-theme="dossier"]) .hud::before {
+  content: "";
+  position: fixed;
+  inset: 13px;
+  border: 1px solid var(--line);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+:global([data-theme="dossier"]) .hud-corner {
+  width: 30px;
+  height: 30px;
+  opacity: 0.9;
+}
+
+:global([data-theme="dossier"]) .legend__dot {
+  border-radius: 0;
+}
+
+:global([data-theme="dossier"]) .hud-readout {
+  color: var(--accent-dim);
+  letter-spacing: 0.18em;
+}
+
+:global([data-theme="dossier"]) .toast {
+  border-radius: 0;
 }
 </style>

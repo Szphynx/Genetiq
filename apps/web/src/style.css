@@ -11,7 +11,10 @@
   --danger: #ff7a90;
   --good: #7fe8c0;
   --radius: 3px;
-  font-family: "Inter", "Helvetica Neue", system-ui, -apple-system, sans-serif;
+  --font-ui: "Inter", "Helvetica Neue", system-ui, -apple-system, sans-serif;
+  --font-display: "Inter", "Helvetica Neue", system-ui, -apple-system, sans-serif;
+  --font-data: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+  font-family: var(--font-ui);
   font-weight: 300;
   -webkit-font-smoothing: antialiased;
 }
@@ -44,6 +47,7 @@ body::after {
 }
 
 .label {
+  font-family: var(--font-display);
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.26em;
@@ -52,7 +56,7 @@ body::after {
 }
 
 .mono {
-  font-family: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+  font-family: var(--font-data);
 }
 
 button {
@@ -246,4 +250,125 @@ select option {
 .card-leave-to {
   opacity: 0;
   transform: translate(-50%, calc(-100% - 12px)) scale(0.96);
+}
+
+/* =====================================================================
+   DOSSIER THEME — CRT subject-file: phosphor blue on black, bitmap type,
+   hairline registration frames, scanline + dither, inverted label blocks.
+   ===================================================================== */
+[data-theme="dossier"] {
+  --bg: #000408;
+  --panel: rgba(8, 18, 34, 0.34);
+  --line: rgba(122, 182, 255, 0.5);
+  --line-strong: rgba(170, 214, 255, 0.92);
+  --text: #c6e3ff;
+  --muted: #5f86b8;
+  --accent: #dcefff;
+  --accent-dim: #84b4ea;
+  --good: #9ad2ff;
+  --amber: #ffd27a;
+  --danger: #ff9a8a;
+  --radius: 0px;
+  --font-ui: "VT323", "Courier New", monospace;
+  --font-display: "Silkscreen", "VT323", "Courier New", monospace;
+  --font-data: "VT323", "Courier New", monospace;
+}
+
+/* CRT surface: vignette + scanlines + faint dither, gently flickering */
+[data-theme="dossier"] body::after {
+  background:
+    radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.72) 100%),
+    repeating-linear-gradient(0deg, rgba(122, 182, 255, 0.06) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(122, 182, 255, 0.02) 0 1px, transparent 1px 2px);
+  animation: crt-flicker 5s steps(40) infinite;
+  opacity: 0.6;
+}
+
+@keyframes crt-flicker {
+  0%,
+  100% {
+    opacity: 0.58;
+  }
+  48% {
+    opacity: 0.62;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  52% {
+    opacity: 0.62;
+  }
+}
+
+[data-theme="dossier"] body {
+  text-shadow: 0 0 4px rgba(140, 195, 255, 0.35);
+}
+
+[data-theme="dossier"] .label {
+  color: var(--accent-dim);
+  letter-spacing: 0.08em;
+  font-size: 11px;
+}
+
+/* Hairline registration frames with an inner double-line and soft phosphor glow */
+[data-theme="dossier"] .glass {
+  background: rgba(4, 12, 24, 0.46);
+  border: 1px solid var(--line);
+  box-shadow:
+    inset 0 0 0 3px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 4px rgba(122, 182, 255, 0.16),
+    0 0 24px rgba(40, 90, 160, 0.16);
+  backdrop-filter: blur(3px);
+}
+
+[data-theme="dossier"] .glass::before,
+[data-theme="dossier"] .glass::after {
+  width: 10px;
+  height: 10px;
+  border-color: var(--line-strong);
+}
+
+/* Buttons: square, glowing outline; primary is an inverted filled block */
+[data-theme="dossier"] button {
+  border-radius: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: rgba(122, 182, 255, 0.05);
+  border: 1px solid var(--line);
+  text-shadow: 0 0 5px rgba(140, 195, 255, 0.45);
+}
+
+[data-theme="dossier"] button:hover {
+  background: rgba(122, 182, 255, 0.16);
+  box-shadow: 0 0 10px rgba(122, 182, 255, 0.28), inset 0 0 12px rgba(122, 182, 255, 0.16);
+}
+
+[data-theme="dossier"] button.primary {
+  background: var(--line);
+  color: #021018;
+  text-shadow: none;
+  font-weight: 700;
+}
+
+[data-theme="dossier"] button.primary:hover {
+  background: var(--line-strong);
+  box-shadow: 0 0 16px rgba(122, 182, 255, 0.4);
+}
+
+[data-theme="dossier"] input,
+[data-theme="dossier"] select,
+[data-theme="dossier"] textarea {
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--line);
+}
+
+[data-theme="dossier"] .tip-bubble {
+  border-radius: 0;
+  background: rgba(2, 10, 20, 0.96);
+  border: 1px solid var(--line-strong);
+  font-family: var(--font-data);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 13px;
 }
