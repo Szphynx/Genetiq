@@ -1,20 +1,26 @@
 import type { Genome, GenomeKind, GenomeSummary } from "@genetiq/core";
 import { summarize } from "@genetiq/core";
 import { buildSampleGenomes } from "./data/organisms.js";
+import { createPersistence, type Persistence } from "./store.js";
 
 /**
- * In-memory genome catalog. Seeded with the reference organisms and extended
- * at runtime with user-created genomes (variants, mixes, procedural datasets).
- * Reference genomes are immutable and cannot be deleted.
- *
- * Note: storage is in-process and resets on restart — fine for the MVP; swap
- * for a real datastore behind this same interface later.
+ * Genome catalog. Reference organisms are seeded fresh each start; user
+ * creations (variants, mixes, procedural datasets) are loaded from — and
+ * persisted to — the datastore so they survive restarts. Reference genomes
+ * are immutable and never deleted.
  */
 export class Catalog {
   private genomes = new Map<string, Genome>();
 
-  constructor() {
+  constructor(private readonly persistence: Persistence = createPersistence()) {
     for (const g of buildSampleGenomes()) this.genomes.set(g.id, g);
+    for (const g of this.persistence.loadAll()) {
+      if (g.kind !== "reference") this.genomes.set(g.id, g);
+    }
+  }
+
+  get storeKind(): string {
+    return this.persistence.kind;
   }
 
   list(kind?: GenomeKind): GenomeSummary[] {
@@ -35,12 +41,21 @@ export class Catalog {
 
   add(genome: Genome): GenomeSummary {
     this.genomes.set(genome.id, genome);
+    if (genome.kind !== "reference") this.persist();
     return summarize(genome);
   }
 
   remove(id: string): boolean {
     const g = this.genomes.get(id);
     if (!g || g.kind === "reference") return false;
-    return this.genomes.delete(id);
+    this.genomes.delete(id);
+    this.persist();
+    return true;
+  }
+
+  /** Persist only user creations; references are re-seeded from code. */
+  private persist(): void {
+    const creations = [...this.genomes.values()].filter((g) => g.kind !== "reference");
+    this.persistence.save(creations);
   }
 }

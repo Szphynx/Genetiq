@@ -66,7 +66,7 @@ export async function buildApp(opts: BuildOptions = {}): Promise<FastifyInstance
 
   await app.register(cors, { origin: true });
 
-  app.get("/api/health", async () => ({ ok: true, service: "genetiq-api" }));
+  app.get("/api/health", async () => ({ ok: true, service: "genetiq-api", store: catalog.storeKind }));
 
   // --- Catalog & genomes ---------------------------------------------------
   app.get("/api/species", async () => catalog.list("reference"));
