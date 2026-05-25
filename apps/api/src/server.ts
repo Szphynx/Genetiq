@@ -11,6 +11,12 @@ import {
   parseCsv,
 } from "@genetiq/core";
 import { Catalog } from "./catalog.js";
+import {
+  ENSEMBL_SPECIES,
+  buildEnsemblGenome,
+  getRegionGenes,
+  type EnsemblGenomeOptions,
+} from "./providers/ensembl.js";
 
 const catalog = new Catalog();
 const app = Fastify({ logger: true });
@@ -141,6 +147,44 @@ app.post<{ Body: ProceduralBody }>("/api/procedural", async (req, reply) => {
   });
   return catalog.add(genome);
 });
+
+// --- Ensembl (live, real genomes with level-of-detail) ---------------------
+
+app.get("/api/ensembl/species", async () =>
+  ENSEMBL_SPECIES.map((s) => ({ id: s.id, commonName: s.commonName, species: s.species })),
+);
+
+app.post<{ Body: { species: string } & EnsemblGenomeOptions }>(
+  "/api/ensembl/load",
+  async (req, reply) => {
+    const { species, ...options } = req.body ?? { species: "" };
+    if (!species) return reply.code(400).send({ error: "species required" });
+    try {
+      const genome = await buildEnsemblGenome(species, options);
+      return catalog.add(genome);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      app.log.warn({ err: message }, "ensembl load failed");
+      return reply.code(502).send({ error: `Ensembl unavailable: ${message}` });
+    }
+  },
+);
+
+app.get<{ Querystring: { species: string; chr: string; start: string; end: string; cap?: string } }>(
+  "/api/ensembl/region",
+  async (req, reply) => {
+    const { species, chr, start, end, cap } = req.query;
+    if (!species || !chr || !start || !end) {
+      return reply.code(400).send({ error: "species, chr, start, end are required" });
+    }
+    try {
+      return await getRegionGenes(species, chr, Number(start), Number(end), cap ? Number(cap) : 200);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return reply.code(502).send({ error: `Ensembl unavailable: ${message}` });
+    }
+  },
+);
 
 const port = Number(process.env.PORT ?? 8787);
 try {

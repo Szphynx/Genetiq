@@ -230,6 +230,14 @@ export const useGenomeStore = defineStore("genome", () => {
     });
   }
 
+  async function loadEnsembl(species: string, perChromosome: number): Promise<void> {
+    await run("Loaded live Ensembl genome", async () => {
+      const summary = await api.ensemblLoad({ species, perChromosome });
+      await refreshCatalog();
+      await loadGenome(summary.id);
+    });
+  }
+
   async function saveCurrent(): Promise<void> {
     const genome = current.value;
     if (!genome) return;
@@ -253,6 +261,6 @@ export const useGenomeStore = defineStore("genome", () => {
     mutatedIds, chromosomes, geneList, references, creations,
     init, loadGenome, adoptGenome, selectGene, refreshCatalog, setMorphTarget,
     mutateSelected, duplicateSelected, deleteSelected, resetCurrent,
-    makeVariant, evolveCurrent, mixWith, importCsv, saveCurrent, deleteFromCatalog,
+    makeVariant, evolveCurrent, mixWith, importCsv, loadEnsembl, saveCurrent, deleteFromCatalog,
   };
 });

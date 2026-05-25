@@ -53,4 +53,8 @@ export const api = {
     groupColumn?: string;
     seed?: number;
   }) => jsonFetch<GenomeSummary>(`${BASE}/procedural`, { method: "POST", body: JSON.stringify(body) }),
+  ensemblSpecies: () =>
+    jsonFetch<Array<{ id: string; commonName: string; species: string }>>(`${BASE}/ensembl/species`),
+  ensemblLoad: (body: { species: string; perChromosome?: number; maxChromosomes?: number }) =>
+    jsonFetch<GenomeSummary>(`${BASE}/ensembl/load`, { method: "POST", body: JSON.stringify(body) }),
 };

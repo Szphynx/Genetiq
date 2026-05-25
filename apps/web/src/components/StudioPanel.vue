@@ -1,8 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
+import { api } from "@/api";
 import { useGenomeStore } from "@/stores/genome";
 
 const store = useGenomeStore();
+
+const ensemblSpecies = ref<Array<{ id: string; commonName: string; species: string }>>([]);
+const ensemblPick = ref("human");
+const ensemblPerChr = ref(15);
+
+onMounted(async () => {
+  ensemblSpecies.value = await api.ensemblSpecies().catch(() => []);
+});
 
 const datasetName = ref("Solar System");
 const expressionColumn = ref("diameter");
@@ -77,6 +86,33 @@ function onMorphTarget(e: Event): void {
         @click="store.mixWith(store.mixPartner)"
       >
         ✦ Mix genomes
+      </button>
+    </section>
+
+    <section>
+      <span class="label">Load real genome · Ensembl</span>
+      <p class="hint">
+        Fetches live data from Ensembl with level-of-detail (a capped sample of genes per
+        chromosome). Requires outbound network access to rest.ensembl.org.
+      </p>
+      <div class="grid">
+        <label>
+          <span class="label">Species</span>
+          <select v-model="ensemblPick">
+            <option v-for="s in ensemblSpecies" :key="s.id" :value="s.id">{{ s.commonName }}</option>
+          </select>
+        </label>
+        <label>
+          <span class="label">Genes / chr</span>
+          <input type="number" v-model.number="ensemblPerChr" min="1" max="40" />
+        </label>
+      </div>
+      <button
+        class="full"
+        :disabled="store.busy || !ensemblSpecies.length"
+        @click="store.loadEnsembl(ensemblPick, ensemblPerChr)"
+      >
+        🌐 Load from Ensembl
       </button>
     </section>
 
