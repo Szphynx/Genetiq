@@ -39,6 +39,11 @@ export const useGenomeStore = defineStore("genome", () => {
   const generations = ref(5);
   const mixPartner = ref<string>("");
 
+  // Live morph (visual interpolation toward another genome)
+  const morphTargetId = ref<string>("");
+  const morphTargetGenome = shallowRef<Genome | null>(null);
+  const morphT = ref(0);
+
   const mutatedIds = computed(() => (current.value ? mutatedGeneIds(current.value) : new Set<string>()));
   const chromosomes = computed(() => current.value?.chromosomes ?? []);
   const geneList = computed(() => chromosomes.value.flatMap((c) => c.genes));
@@ -79,11 +84,18 @@ export const useGenomeStore = defineStore("genome", () => {
     });
   }
 
+  function resetMorph(): void {
+    morphTargetId.value = "";
+    morphTargetGenome.value = null;
+    morphT.value = 0;
+  }
+
   async function loadGenome(id: string): Promise<void> {
     await run("", async () => {
       const genome = await api.genome(id);
       selectedGeneId.value = null;
       selectedGene.value = null;
+      resetMorph();
       current.value = genome;
     });
   }
@@ -92,7 +104,22 @@ export const useGenomeStore = defineStore("genome", () => {
   function adoptGenome(genome: Genome): void {
     selectedGeneId.value = null;
     selectedGene.value = null;
+    resetMorph();
     current.value = genome;
+  }
+
+  async function setMorphTarget(id: string): Promise<void> {
+    morphT.value = 0;
+    if (!id) {
+      morphTargetId.value = "";
+      morphTargetGenome.value = null;
+      return;
+    }
+    await run("", async () => {
+      const genome = await api.genome(id);
+      morphTargetId.value = id;
+      morphTargetGenome.value = genome;
+    });
   }
 
   async function selectGene(geneId: string | null): Promise<void> {
@@ -222,8 +249,9 @@ export const useGenomeStore = defineStore("genome", () => {
   return {
     catalog, current, selectedGene, selectedGeneId, activePanel, backend, busy, status, error,
     seed, mutationCount, generations, mixPartner,
+    morphTargetId, morphTargetGenome, morphT,
     mutatedIds, chromosomes, geneList, references, creations,
-    init, loadGenome, adoptGenome, selectGene, refreshCatalog,
+    init, loadGenome, adoptGenome, selectGene, refreshCatalog, setMorphTarget,
     mutateSelected, duplicateSelected, deleteSelected, resetCurrent,
     makeVariant, evolveCurrent, mixWith, importCsv, saveCurrent, deleteFromCatalog,
   };

@@ -56,6 +56,20 @@ watch(
   },
 );
 
+watch(
+  () => store.morphTargetGenome,
+  (target) => {
+    if (!engine || !ready.value) return;
+    if (target) engine.prepareMorph(target);
+    else engine.clearMorph();
+  },
+);
+
+watch(
+  () => store.morphT,
+  (t) => engine?.setMorphT(t),
+);
+
 onBeforeUnmount(() => engine?.dispose());
 
 function biotypeColor(): string {

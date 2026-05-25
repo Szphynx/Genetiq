@@ -23,6 +23,10 @@ const partners = computed(() => store.catalog.filter((g) => g.id !== store.curre
 function randomizeSeed(): void {
   store.seed = Math.floor(Math.random() * 100000);
 }
+
+function onMorphTarget(e: Event): void {
+  void store.setMorphTarget((e.target as HTMLSelectElement).value);
+}
 </script>
 
 <template>
@@ -74,6 +78,30 @@ function randomizeSeed(): void {
       >
         ✦ Mix genomes
       </button>
+    </section>
+
+    <section>
+      <span class="label">Morph between genomes</span>
+      <p class="hint">Live-blend the current genome's genes toward another. Drag to animate the transformation.</p>
+      <select :value="store.morphTargetId" @change="onMorphTarget">
+        <option value="">No morph target</option>
+        <option v-for="p in partners" :key="p.id" :value="p.id">{{ p.name }} · {{ p.species }}</option>
+      </select>
+      <div class="morph" :class="{ disabled: !store.morphTargetGenome }">
+        <div class="morph__ends mono">
+          <span>{{ store.current?.commonName ?? store.current?.name ?? "—" }}</span>
+          <span>{{ Math.round(store.morphT * 100) }}%</span>
+          <span>{{ store.morphTargetGenome?.commonName ?? store.morphTargetGenome?.name ?? "target" }}</span>
+        </div>
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          v-model.number="store.morphT"
+          :disabled="!store.morphTargetGenome"
+        />
+      </div>
     </section>
 
     <section>
@@ -139,5 +167,23 @@ label {
 
 .self-end {
   align-self: end;
+}
+
+.morph.disabled {
+  opacity: 0.5;
+}
+
+.morph__ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+  padding: 0;
 }
 </style>
