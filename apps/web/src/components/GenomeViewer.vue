@@ -124,9 +124,6 @@ function chromName(chrId: string): string {
       </div>
     </div>
 
-    <div v-if="store.backend" class="backend-badge mono">
-      {{ store.backend.toUpperCase() }}
-    </div>
   </div>
 </template>
 
@@ -146,41 +143,55 @@ canvas {
 
 .gene-card {
   position: absolute;
-  transform: translate(-50%, calc(-100% - 18px));
-  width: 250px;
+  transform: translate(-50%, calc(-100% - 22px));
+  width: 248px;
   padding: 12px 14px 14px;
   pointer-events: none;
   overflow: hidden;
 }
 
+/* leader line + node from the card down to the gene */
+.gene-card::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -22px;
+  width: 1px;
+  height: 22px;
+  background: linear-gradient(var(--line-strong), transparent);
+}
+
 .gene-card__bar {
   position: absolute;
   inset: 0 auto 0 0;
-  width: 4px;
+  width: 2px;
 }
 
 .gene-card__head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: 8px;
 }
 
 .gene-card__symbol {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: 19px;
+  font-weight: 300;
+  letter-spacing: 0.12em;
+  color: var(--accent);
 }
 
 .gene-card__name {
-  font-size: 13px;
-  margin: 4px 0 6px;
+  font-size: 12px;
+  margin: 5px 0 7px;
   color: var(--text);
+  font-weight: 300;
 }
 
 .gene-card__meta {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--muted);
+  letter-spacing: 0.04em;
 }
 
 .gene-card__diseases {
@@ -191,29 +202,17 @@ canvas {
 }
 
 .chip {
-  font-size: 10.5px;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: rgba(76, 194, 255, 0.16);
-  border: 1px solid var(--border);
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  background: rgba(143, 227, 255, 0.1);
+  border: 1px solid var(--line);
+  letter-spacing: 0.04em;
 }
 
 .chip.danger {
-  background: rgba(255, 90, 118, 0.16);
-  border-color: rgba(255, 90, 118, 0.4);
+  background: rgba(255, 122, 144, 0.12);
+  border-color: rgba(255, 122, 144, 0.4);
   color: #ffc2cc;
-}
-
-.backend-badge {
-  position: absolute;
-  right: 16px;
-  bottom: 14px;
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  color: var(--muted);
-  padding: 4px 9px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.3);
 }
 </style>

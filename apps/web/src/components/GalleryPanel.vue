@@ -5,7 +5,7 @@ const store = useGenomeStore();
 
 const kindColor: Record<string, string> = {
   reference: "var(--accent)",
-  variant: "var(--accent-2)",
+  variant: "var(--amber)",
   procedural: "var(--good)",
 };
 </script>
@@ -72,7 +72,7 @@ const kindColor: Record<string, string> = {
   align-items: center;
   gap: 10px;
   padding: 9px 11px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: 11px;
   background: rgba(255, 255, 255, 0.02);
   cursor: pointer;
@@ -80,7 +80,7 @@ const kindColor: Record<string, string> = {
 }
 
 .item:hover {
-  border-color: var(--border-strong);
+  border-color: var(--line-strong);
   background: rgba(76, 194, 255, 0.07);
 }
 

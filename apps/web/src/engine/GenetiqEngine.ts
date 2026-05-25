@@ -48,9 +48,24 @@ interface SparseGene {
   fadeOut?: boolean;
 }
 
+interface HelixParams {
+  node: TransformNode;
+  height: number;
+  turns: number;
+  phase: number;
+  steps: number;
+}
+
 const HELIX_R = 0.72;
-// Above this gene count we switch to thin-instanced rendering for scale.
 const DENSE_THRESHOLD = 350;
+const DIM = 0.07;
+
+// Oblivion / GMunk palette — restrained cyan-white holographic on black.
+const C_BACKBONE_A: RGB = [0.45, 0.85, 1.0];
+const C_BACKBONE_B: RGB = [0.7, 0.95, 1.0];
+const C_RUNG: RGB = [0.55, 0.8, 0.95];
+const C_HALO: RGB = [0.7, 0.97, 1.0];
+const C_RETICLE: RGB = [0.3, 0.7, 0.85];
 const BASE_COLORS: RGB[] = [
   NUCLEOTIDE_COLORS.A!,
   NUCLEOTIDE_COLORS.T!,
@@ -61,21 +76,24 @@ const BASE_COLORS: RGB[] = [
 function toColor3(rgb: RGB): Color3 {
   return new Color3(rgb[0], rgb[1], rgb[2]);
 }
-
 function lerpColor(a: Color3, b: Color3, t: number): Color3 {
   return new Color3(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t);
 }
-
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
+function orientYTo(dir: Vector3): Quaternion {
+  const up = Vector3.Up();
+  const axis = Vector3.Cross(up, dir);
+  const angle = Math.acos(clamp(Vector3.Dot(up, dir), -1, 1));
+  return axis.lengthSquared() < 1e-6 ? Quaternion.Identity() : Quaternion.RotationAxis(axis.normalize(), angle);
+}
 
 /**
- * The Genetiq rendering engine. Each chromosome is a glowing double helix —
- * two twisting backbones joined by base-pair rungs — with genes as bright
- * nodes on the ladder. Small genomes use individually-lit gene meshes (rich
- * morphing); large genomes switch to thin-instanced genes for scale (LOD).
- * A billboarded halo marks the selection, so picking never triggers a rebuild.
+ * Genetiq rendering engine, styled after minimal holographic film HUDs.
+ * Chromosomes are cyan-white double helices; the focused one dims the rest and
+ * reveals true two-tone base-pair rungs (A·T / G·C). Small genomes use
+ * individually-lit genes (morphable); large ones use thin instances (LOD).
  */
 export class GenetiqEngine {
   private engine!: AbstractEngine;
@@ -90,14 +108,20 @@ export class GenetiqEngine {
   private backboneMatB!: StandardMaterial;
   private rungMat!: StandardMaterial;
   private denseGeneMat!: StandardMaterial;
+  private reticleMat!: StandardMaterial;
+  private pairMat!: StandardMaterial;
+  private beadMat!: StandardMaterial;
 
   private sparseGenes: SparseGene[] = [];
   private denseMeshes: Mesh[] = [];
   private structureMeshes: Mesh[] = [];
+  private detailMeshes: Mesh[] = [];
   private chromosomeNodes = new Map<string, TransformNode>();
-  private geneLookup = new Map<string, { node: TransformNode; localPos: Vector3 }>();
+  private chromosomeHelix = new Map<string, HelixParams>();
+  private geneLookup = new Map<string, { node: TransformNode; localPos: Vector3; chrId: string }>();
 
   private dense = false;
+  private focusedChrId: string | null = null;
   private selectedGeneId: string | null = null;
   private idleSpin = true;
   private elapsed = 0;
@@ -128,50 +152,55 @@ export class GenetiqEngine {
 
   private buildScene(): void {
     const scene = new Scene(this.engine);
-    scene.clearColor = new Color4(0.02, 0.03, 0.06, 1);
+    scene.clearColor = new Color4(0.015, 0.02, 0.03, 1);
     scene.fogMode = Scene.FOGMODE_EXP2;
-    scene.fogColor = new Color3(0.02, 0.03, 0.06);
-    scene.fogDensity = 0.011;
+    scene.fogColor = new Color3(0.015, 0.02, 0.03);
+    scene.fogDensity = 0.0095;
     this.scene = scene;
 
-    const camera = new ArcRotateCamera("camera", Math.PI / 2, Math.PI / 2.3, 44, Vector3.Zero(), scene);
+    const camera = new ArcRotateCamera("camera", Math.PI / 2, Math.PI / 2.25, 44, Vector3.Zero(), scene);
     camera.attachControl(this.canvas, true);
     camera.lowerRadiusLimit = 3;
-    camera.upperRadiusLimit = 200;
+    camera.upperRadiusLimit = 220;
     camera.wheelDeltaPercentage = 0.02;
     camera.pinchDeltaPercentage = 0.02;
     camera.minZ = 0.1;
     this.camera = camera;
 
     const hemi = new HemisphericLight("hemi", new Vector3(0.2, 1, 0.1), scene);
-    hemi.intensity = 0.5;
-    hemi.groundColor = new Color3(0.04, 0.05, 0.1);
-    const key = new PointLight("key", new Vector3(20, 26, 20), scene);
-    key.intensity = 0.45;
+    hemi.intensity = 0.4;
+    hemi.groundColor = new Color3(0.03, 0.04, 0.06);
+    const key = new PointLight("key", new Vector3(18, 26, 18), scene);
+    key.intensity = 0.35;
 
-    this.glow = new GlowLayer("glow", scene, { blurKernelSize: 56 });
-    this.glow.intensity = 1.25;
+    this.glow = new GlowLayer("glow", scene, { blurKernelSize: 48 });
+    this.glow.intensity = 0.85;
 
     this.root = new TransformNode("genomeRoot", scene);
 
-    this.backboneMatA = this.makeEmissiveMat("bbA", new Color3(0.18, 0.55, 0.95), 0.55);
-    this.backboneMatB = this.makeEmissiveMat("bbB", new Color3(0.75, 0.3, 0.95), 0.55);
-    this.rungMat = this.makeEmissiveMat("rung", new Color3(0.6, 0.7, 0.9), 0.35);
+    this.backboneMatA = this.emissiveMat("bbA", C_BACKBONE_A, 0.7);
+    this.backboneMatB = this.emissiveMat("bbB", C_BACKBONE_B, 0.7);
+    this.rungMat = this.emissiveMat("rung", C_RUNG, 0.3);
+    this.reticleMat = this.emissiveMat("reticle", C_RETICLE, 0.7);
+    this.reticleMat.alpha = 0.4;
 
-    // Flat, vivid, unlit gene dots for dense mode (excluded from bloom so the
-    // helices stay the glowing stars and dense fields read as crisp points).
     this.denseGeneMat = new StandardMaterial("denseGene", scene);
     this.denseGeneMat.disableLighting = true;
     this.denseGeneMat.emissiveColor = new Color3(1, 1, 1);
+
+    this.pairMat = new StandardMaterial("pair", scene);
+    this.pairMat.disableLighting = true;
+    this.pairMat.emissiveColor = new Color3(1, 1, 1);
+
+    this.beadMat = this.emissiveMat("bead", C_BACKBONE_B, 0.8);
 
     const tpl = MeshBuilder.CreateSphere("geneTpl", { diameter: 1, segments: 12 }, scene);
     tpl.setEnabled(false);
     tpl.isPickable = false;
     this.geneTemplate = tpl;
 
-    const halo = MeshBuilder.CreateTorus("halo", { diameter: 1.6, thickness: 0.08, tessellation: 36 }, scene);
-    const haloMat = this.makeEmissiveMat("haloMat", new Color3(0.5, 0.95, 1), 1.4);
-    halo.material = haloMat;
+    const halo = MeshBuilder.CreateTorus("halo", { diameter: 1.7, thickness: 0.05, tessellation: 48 }, scene);
+    halo.material = this.emissiveMat("haloMat", C_HALO, 1.5);
     halo.billboardMode = Mesh.BILLBOARDMODE_ALL;
     halo.isPickable = false;
     halo.setEnabled(false);
@@ -181,11 +210,12 @@ export class GenetiqEngine {
     scene.onBeforeRenderObservable.add(() => this.update());
   }
 
-  private makeEmissiveMat(name: string, color: Color3, emissive: number): StandardMaterial {
+  private emissiveMat(name: string, color: RGB, emissive: number): StandardMaterial {
     const m = new StandardMaterial(name, this.scene);
-    m.diffuseColor = color.scale(0.3);
-    m.emissiveColor = color.scale(emissive);
-    m.specularColor = new Color3(0.1, 0.1, 0.15);
+    const c = toColor3(color);
+    m.diffuseColor = c.scale(0.25);
+    m.emissiveColor = c.scale(emissive);
+    m.specularColor = new Color3(0.08, 0.1, 0.12);
     return m;
   }
 
@@ -216,8 +246,34 @@ export class GenetiqEngine {
       this.buildHelix(node, chr, ci, mutated);
     });
 
-    if (opts.resetCamera) this.focusOverview();
+    this.buildReticle();
     this.setSelected(this.selectedGeneId);
+
+    if (opts.resetCamera) {
+      this.focusOverview();
+    } else {
+      const sel = this.selectedGeneId ? this.geneLookup.get(this.selectedGeneId) : null;
+      this.setFocusChromosome(sel ? sel.chrId : null);
+    }
+  }
+
+  private buildReticle(): void {
+    const r = this.ringRadius || 10;
+    const mat = this.reticleMat;
+    for (const d of [r * 2 + 6, r * 2 + 13, r * 2 + 22]) {
+      const ring = MeshBuilder.CreateTorus(`reticle-${d}`, { diameter: d, thickness: 0.03, tessellation: 120 }, this.scene);
+      ring.parent = this.root;
+      ring.position.y = -8;
+      ring.material = mat;
+      ring.isPickable = false;
+      this.structureMeshes.push(ring);
+    }
+  }
+
+  private helixPoint(p: HelixParams, f: number, angleOffset = 0): Vector3 {
+    const t = f * p.turns * Math.PI * 2 + p.phase + angleOffset;
+    const y = -p.height / 2 + f * p.height;
+    return new Vector3(Math.cos(t) * HELIX_R, y, Math.sin(t) * HELIX_R);
   }
 
   private buildHelix(node: TransformNode, chr: Chromosome, ci: number, mutated: Set<string>): void {
@@ -225,45 +281,40 @@ export class GenetiqEngine {
     const turns = Math.max(2.5, height / 2.0);
     const steps = clamp(Math.round(turns * 10), 24, 120);
     const phase = ci * 0.7;
+    const params: HelixParams = { node, height, turns, phase, steps };
+    this.chromosomeHelix.set(chr.id, params);
 
     const pathA: Vector3[] = [];
     const pathB: Vector3[] = [];
     for (let i = 0; i <= steps; i++) {
-      const f = i / steps;
-      const t = f * turns * Math.PI * 2 + phase;
-      const y = -height / 2 + f * height;
-      pathA.push(new Vector3(Math.cos(t) * HELIX_R, y, Math.sin(t) * HELIX_R));
-      pathB.push(new Vector3(Math.cos(t + Math.PI) * HELIX_R, y, Math.sin(t + Math.PI) * HELIX_R));
+      pathA.push(this.helixPoint(params, i / steps, 0));
+      pathB.push(this.helixPoint(params, i / steps, Math.PI));
     }
 
-    const tubeA = MeshBuilder.CreateTube(`bbA-${chr.id}`, { path: pathA, radius: 0.05, tessellation: 8, cap: Mesh.CAP_ALL }, this.scene);
+    const tubeA = MeshBuilder.CreateTube(`bbA-${chr.id}`, { path: pathA, radius: 0.045, tessellation: 8, cap: Mesh.CAP_ALL }, this.scene);
     tubeA.parent = node;
     tubeA.isPickable = false;
     tubeA.material = this.backboneMatA;
-    const tubeB = MeshBuilder.CreateTube(`bbB-${chr.id}`, { path: pathB, radius: 0.05, tessellation: 8, cap: Mesh.CAP_ALL }, this.scene);
+    const tubeB = MeshBuilder.CreateTube(`bbB-${chr.id}`, { path: pathB, radius: 0.045, tessellation: 8, cap: Mesh.CAP_ALL }, this.scene);
     tubeB.parent = node;
     tubeB.isPickable = false;
     tubeB.material = this.backboneMatB;
     this.structureMeshes.push(tubeA, tubeB);
 
+    // Simple base-pair rungs (low-detail). Detailed two-tone rungs appear on focus.
     const rungBase = MeshBuilder.CreateCylinder(`rungs-${chr.id}`, { height: 1, diameter: 1, tessellation: 6 }, this.scene);
     rungBase.parent = node;
     rungBase.isPickable = false;
     rungBase.material = this.rungMat;
-
     const matrices = new Float32Array((steps + 1) * 16);
     const rungColors = new Float32Array((steps + 1) * 4);
-    const up = Vector3.Up();
     for (let i = 0; i <= steps; i++) {
       const f = i / steps;
       const t = f * turns * Math.PI * 2 + phase;
       const y = -height / 2 + f * height;
       const dir = new Vector3(Math.cos(t), 0, Math.sin(t));
-      const axis = Vector3.Cross(up, dir);
-      const angle = Math.acos(clamp(Vector3.Dot(up, dir), -1, 1));
-      const q = axis.lengthSquared() < 1e-6 ? Quaternion.Identity() : Quaternion.RotationAxis(axis.normalize(), angle);
-      Matrix.Compose(new Vector3(0.04, HELIX_R * 2, 0.04), q, new Vector3(0, y, 0)).copyToArray(matrices, i * 16);
-      const c = BASE_COLORS[i % BASE_COLORS.length]!;
+      Matrix.Compose(new Vector3(0.03, HELIX_R * 2, 0.03), orientYTo(dir), new Vector3(0, y, 0)).copyToArray(matrices, i * 16);
+      const c = C_RUNG;
       rungColors[i * 4] = c[0];
       rungColors[i * 4 + 1] = c[1];
       rungColors[i * 4 + 2] = c[2];
@@ -274,75 +325,53 @@ export class GenetiqEngine {
     const placements = chr.genes.map((gene) => {
       const mid = (gene.start + gene.end) / 2;
       const f = clamp(mid / length, 0, 1);
-      const t = f * turns * Math.PI * 2 + phase;
-      const y = -height / 2 + f * height;
       const side = gene.strand === "-" ? Math.PI : 0;
-      const pos = new Vector3(Math.cos(t + side) * HELIX_R, y, Math.sin(t + side) * HELIX_R);
+      const pos = this.helixPoint(params, f, side);
       const v = geneVisual(gene, { mutated: mutated.has(gene.id) });
-      // brighten the rung where this gene sits
       const ri = clamp(Math.round(f * steps), 0, steps);
       rungColors[ri * 4] = clamp(v.color[0] * 1.2, 0, 1);
       rungColors[ri * 4 + 1] = clamp(v.color[1] * 1.2, 0, 1);
       rungColors[ri * 4 + 2] = clamp(v.color[2] * 1.2, 0, 1);
-      this.geneLookup.set(gene.id, { node, localPos: pos });
+      this.geneLookup.set(gene.id, { node, localPos: pos, chrId: chr.id });
       return { gene, pos, v };
     });
-
     rungBase.thinInstanceSetBuffer("matrix", matrices, 16, true);
     rungBase.thinInstanceSetBuffer("color", rungColors, 4, true);
     this.structureMeshes.push(rungBase);
 
-    if (this.dense) {
-      this.buildDenseGenes(node, chr, placements);
-    } else {
-      for (const p of placements) this.buildSparseGene(node, p.gene, p.pos, p.v);
-    }
+    if (this.dense) this.buildDenseGenes(node, chr, placements);
+    else for (const p of placements) this.buildSparseGene(node, p.gene, p.pos, p.v);
   }
 
-  private buildSparseGene(
-    node: TransformNode,
-    gene: Gene,
-    pos: Vector3,
-    v: ReturnType<typeof geneVisual>,
-  ): void {
+  private buildSparseGene(node: TransformNode, gene: Gene, pos: Vector3, v: ReturnType<typeof geneVisual>): void {
     const mesh = this.geneTemplate.clone(`gene-${gene.id}`);
     mesh.setEnabled(true);
     mesh.parent = node;
     mesh.position = pos;
-    const scale = gene.deleted ? 0.18 : 0.3 + v.size * 0.4;
+    const scale = gene.deleted ? 0.16 : 0.26 + v.size * 0.36;
     mesh.scaling.setAll(scale);
     mesh.isPickable = !gene.deleted;
     mesh.metadata = { geneId: gene.id };
 
     const color = toColor3(v.color);
     const mat = new StandardMaterial(`geneMat-${gene.id}`, this.scene);
-    mat.diffuseColor = color.scale(0.45);
-    mat.emissiveColor = color.scale(0.4 + v.emissive);
-    mat.specularColor = new Color3(0.25, 0.25, 0.3);
+    mat.diffuseColor = color.scale(0.4);
+    mat.emissiveColor = color.scale(0.35 + v.emissive);
+    mat.specularColor = new Color3(0.2, 0.2, 0.25);
     if (gene.deleted) mat.alpha = 0.4;
     mesh.material = mat;
 
-    this.sparseGenes.push({
-      gene,
-      mesh,
-      mat,
-      baseColor: mat.emissiveColor.clone(),
-      baseScale: scale,
-    });
+    this.sparseGenes.push({ gene, mesh, mat, baseColor: mat.emissiveColor.clone(), baseScale: scale });
   }
 
-  private buildDenseGenes(
-    node: TransformNode,
-    chr: Chromosome,
-    placements: Array<{ gene: Gene; pos: Vector3; v: ReturnType<typeof geneVisual> }>,
-  ): void {
+  private buildDenseGenes(node: TransformNode, chr: Chromosome, placements: Array<{ gene: Gene; pos: Vector3; v: ReturnType<typeof geneVisual> }>): void {
     const n = placements.length;
     const matrices = new Float32Array(n * 16);
     const colors = new Float32Array(n * 4);
     const geneIds: string[] = [];
     const ident = Quaternion.Identity();
     placements.forEach((p, i) => {
-      const s = p.gene.deleted ? 0.12 : 0.16 + p.v.size * 0.18;
+      const s = p.gene.deleted ? 0.1 : 0.14 + p.v.size * 0.16;
       Matrix.Compose(new Vector3(s, s, s), ident, p.pos).copyToArray(matrices, i * 16);
       colors[i * 4] = p.v.color[0];
       colors[i * 4 + 1] = p.v.color[1];
@@ -350,7 +379,6 @@ export class GenetiqEngine {
       colors[i * 4 + 3] = p.gene.deleted ? 0.4 : 1;
       geneIds.push(p.gene.id);
     });
-
     const base = this.geneTemplate.clone(`genes-${chr.id}`);
     base.setEnabled(true);
     base.parent = node;
@@ -362,6 +390,80 @@ export class GenetiqEngine {
     base.thinInstanceSetBuffer("color", colors, 4, true);
     this.glow.addExcludedMesh(base);
     this.denseMeshes.push(base);
+  }
+
+  /** Reveal true two-tone (A·T / G·C) base-pair rungs + backbone beads on a chromosome. */
+  private enhanceChromosome(chromosomeId: string): void {
+    const p = this.chromosomeHelix.get(chromosomeId);
+    if (!p) return;
+    const detailSteps = Math.min(240, p.steps * 2);
+
+    const halfA = MeshBuilder.CreateCylinder(`detA-${chromosomeId}`, { height: 1, diameter: 1, tessellation: 6 }, this.scene);
+    const halfB = halfA.clone(`detB-${chromosomeId}`);
+    const beads = this.geneTemplate.clone(`beads-${chromosomeId}`);
+    beads.setEnabled(true);
+    for (const m of [halfA, halfB]) {
+      m.parent = p.node;
+      m.isPickable = false;
+      m.material = this.pairMat;
+      this.glow.addExcludedMesh(m);
+    }
+    beads.parent = p.node;
+    beads.isPickable = false;
+    beads.material = this.beadMat;
+
+    const mA = new Float32Array((detailSteps + 1) * 16);
+    const mB = new Float32Array((detailSteps + 1) * 16);
+    const cA = new Float32Array((detailSteps + 1) * 4);
+    const cB = new Float32Array((detailSteps + 1) * 4);
+    const beadM = new Float32Array((detailSteps + 1) * 2 * 16);
+    const ident = Quaternion.Identity();
+
+    for (let i = 0; i <= detailSteps; i++) {
+      const f = i / detailSteps;
+      const t = f * p.turns * Math.PI * 2 + p.phase;
+      const y = -p.height / 2 + f * p.height;
+      const dir = new Vector3(Math.cos(t), 0, Math.sin(t));
+      const q = orientYTo(dir);
+      const half = new Vector3(0.035, HELIX_R, 0.035);
+      Matrix.Compose(half, q, dir.scale(HELIX_R / 2).add(new Vector3(0, y, 0))).copyToArray(mA, i * 16);
+      Matrix.Compose(half, q, dir.scale(-HELIX_R / 2).add(new Vector3(0, y, 0))).copyToArray(mB, i * 16);
+
+      const baseIdx = ((Math.imul(i + 1, 2654435761) >>> 0) % 4);
+      const compIdx = baseIdx ^ 1;
+      const bc = BASE_COLORS[baseIdx]!;
+      const cc = BASE_COLORS[compIdx]!;
+      cA[i * 4] = bc[0]; cA[i * 4 + 1] = bc[1]; cA[i * 4 + 2] = bc[2]; cA[i * 4 + 3] = 1;
+      cB[i * 4] = cc[0]; cB[i * 4 + 1] = cc[1]; cB[i * 4 + 2] = cc[2]; cB[i * 4 + 3] = 1;
+
+      const bead = new Vector3(0.09, 0.09, 0.09);
+      Matrix.Compose(bead, ident, dir.scale(HELIX_R).add(new Vector3(0, y, 0))).copyToArray(beadM, i * 2 * 16);
+      Matrix.Compose(bead, ident, dir.scale(-HELIX_R).add(new Vector3(0, y, 0))).copyToArray(beadM, (i * 2 + 1) * 16);
+    }
+
+    halfA.thinInstanceSetBuffer("matrix", mA, 16, true);
+    halfA.thinInstanceSetBuffer("color", cA, 4, true);
+    halfB.thinInstanceSetBuffer("matrix", mB, 16, true);
+    halfB.thinInstanceSetBuffer("color", cB, 4, true);
+    beads.thinInstanceSetBuffer("matrix", beadM, 16, true);
+
+    this.detailMeshes.push(halfA, halfB, beads);
+  }
+
+  private clearDetail(): void {
+    for (const m of this.detailMeshes) m.dispose();
+    this.detailMeshes = [];
+  }
+
+  private setFocusChromosome(chromosomeId: string | null): void {
+    this.focusedChrId = chromosomeId;
+    for (const [id, node] of this.chromosomeNodes) {
+      const vis = chromosomeId === null || id === chromosomeId ? 1 : DIM;
+      for (const m of node.getChildMeshes()) m.visibility = vis;
+    }
+    this.clearDetail();
+    if (chromosomeId) this.enhanceChromosome(chromosomeId);
+    this.halo.visibility = 1;
   }
 
   setSelected(geneId: string | null): void {
@@ -378,18 +480,16 @@ export class GenetiqEngine {
     }
   }
 
-  // --- Morphing (sparse mode) ----------------------------------------------
-
   prepareMorph(target: Genome): void {
-    if (this.dense) return; // morph is a detail-mode feature
+    if (this.dense) return;
     const bySymbol = new Map<string, Gene>();
     for (const g of allGenes(target)) bySymbol.set(g.symbol.toUpperCase(), g);
     for (const node of this.sparseGenes) {
       const match = bySymbol.get(node.gene.symbol.toUpperCase());
       if (match) {
         const v = geneVisual(match);
-        node.targetColor = toColor3(v.color).scale(0.4 + v.emissive);
-        node.targetScale = 0.3 + v.size * 0.4;
+        node.targetColor = toColor3(v.color).scale(0.35 + v.emissive);
+        node.targetScale = 0.26 + v.size * 0.36;
         node.fadeOut = false;
       } else {
         node.targetColor = node.baseColor.clone();
@@ -399,11 +499,9 @@ export class GenetiqEngine {
     }
     this.morphActive = true;
   }
-
   setMorphT(t: number): void {
     this.morphT = clamp(t, 0, 1);
   }
-
   clearMorph(): void {
     this.morphActive = false;
     this.morphT = 0;
@@ -414,25 +512,25 @@ export class GenetiqEngine {
     }
   }
 
-  // --- Camera ---------------------------------------------------------------
-
   focusOverview(): void {
-    this.animateCamera(Vector3.Zero(), this.ringRadius * 2.3 + 14, Math.PI / 2.3, this.camera.alpha);
+    this.setFocusChromosome(null);
+    this.animateCamera(Vector3.Zero(), this.ringRadius * 2.3 + 14, Math.PI / 2.25, this.camera.alpha);
     this.idleSpin = true;
   }
-
   focusGene(geneId: string): void {
-    const pos = this.worldPosOf(geneId);
-    if (!pos) return;
+    const entry = this.geneLookup.get(geneId);
+    if (!entry) return;
     this.idleSpin = false;
-    this.animateCamera(pos, 5.5, Math.PI / 2.5);
+    this.setFocusChromosome(entry.chrId);
+    const pos = Vector3.TransformCoordinates(entry.localPos, entry.node.getWorldMatrix());
+    this.animateCamera(pos, 5, Math.PI / 2.5);
   }
-
   focusChromosome(chromosomeId: string): void {
     const node = this.chromosomeNodes.get(chromosomeId);
     if (!node) return;
     this.idleSpin = false;
-    this.animateCamera(node.getAbsolutePosition().clone(), 13, Math.PI / 2.4);
+    this.setFocusChromosome(chromosomeId);
+    this.animateCamera(node.getAbsolutePosition().clone(), 12, Math.PI / 2.4);
   }
 
   private worldPosOf(geneId: string): Vector3 | null {
@@ -445,25 +543,21 @@ export class GenetiqEngine {
     const ease = new CubicEase();
     ease.setEasingMode(EasingFunction.EASINGMODE_EASEINOUT);
     const fps = 60;
-    const frames = 48;
+    const frames = 50;
     Animation.CreateAndStartAnimation("camTarget", this.camera, "target", fps, frames, this.camera.target.clone(), target, Animation.ANIMATIONLOOPMODE_CONSTANT, ease);
     Animation.CreateAndStartAnimation("camRadius", this.camera, "radius", fps, frames, this.camera.radius, radius, Animation.ANIMATIONLOOPMODE_CONSTANT, ease);
-    if (beta !== undefined) {
-      Animation.CreateAndStartAnimation("camBeta", this.camera, "beta", fps, frames, this.camera.beta, beta, Animation.ANIMATIONLOOPMODE_CONSTANT, ease);
-    }
-    if (alpha !== undefined) {
-      Animation.CreateAndStartAnimation("camAlpha", this.camera, "alpha", fps, frames, this.camera.alpha, alpha, Animation.ANIMATIONLOOPMODE_CONSTANT, ease);
-    }
+    if (beta !== undefined) Animation.CreateAndStartAnimation("camBeta", this.camera, "beta", fps, frames, this.camera.beta, beta, Animation.ANIMATIONLOOPMODE_CONSTANT, ease);
+    if (alpha !== undefined) Animation.CreateAndStartAnimation("camAlpha", this.camera, "alpha", fps, frames, this.camera.alpha, alpha, Animation.ANIMATIONLOOPMODE_CONSTANT, ease);
   }
 
   private update(): void {
     const dt = this.engine.getDeltaTime() / 1000;
     this.elapsed += dt;
-    if (this.idleSpin) this.root.rotation.y += dt * 0.07;
+    if (this.idleSpin) this.root.rotation.y += dt * 0.06;
 
     if (this.halo.isEnabled()) {
-      this.halo.scaling.setAll(1 + Math.sin(this.elapsed * 4) * 0.08);
-      this.halo.rotation.z += dt * 0.6;
+      this.halo.scaling.setAll(1 + Math.sin(this.elapsed * 4) * 0.07);
+      this.halo.rotation.z += dt * 0.5;
     }
 
     if (this.morphActive && !this.dense) {
@@ -504,10 +598,8 @@ export class GenetiqEngine {
       const dy = this.scene.pointerY - this.pointerDown.y;
       this.pointerDown = null;
       if (Math.hypot(dx, dy) > 6) return;
-
       const hit = this.scene.pick(this.scene.pointerX, this.scene.pointerY);
-      const mesh = hit?.pickedMesh;
-      const meta = mesh?.metadata as { geneId?: string; geneIds?: string[] } | undefined;
+      const meta = hit?.pickedMesh?.metadata as { geneId?: string; geneIds?: string[] } | undefined;
       let geneId: string | null = meta?.geneId ?? null;
       if (!geneId && meta?.geneIds && hit && hit.thinInstanceIndex >= 0) {
         geneId = meta.geneIds[hit.thinInstanceIndex] ?? null;
@@ -519,6 +611,8 @@ export class GenetiqEngine {
   private clearGenome(): void {
     this.halo.setEnabled(false);
     this.halo.parent = null;
+    this.halo.visibility = 1;
+    this.clearDetail();
     for (const g of this.sparseGenes) {
       g.mat.dispose();
       g.mesh.dispose();
@@ -530,7 +624,9 @@ export class GenetiqEngine {
     this.structureMeshes = [];
     for (const node of this.chromosomeNodes.values()) node.dispose();
     this.chromosomeNodes.clear();
+    this.chromosomeHelix.clear();
     this.geneLookup.clear();
+    this.focusedChrId = null;
   }
 
   private handleResize = (): void => {

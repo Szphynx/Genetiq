@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { computed, onMounted } from "vue";
 import type { GeneBiotype } from "@genetiq/core";
 import { BIOTYPE_PALETTE, rgbToHex } from "@genetiq/core";
 import { useGenomeStore } from "@/stores/genome";
@@ -19,6 +19,12 @@ const legend: Array<{ biotype: GeneBiotype; label: string }> = [
   { biotype: "pseudogene", label: "Pseudogene" },
 ];
 
+const readout = computed(() => ({
+  organism: (store.current?.commonName ?? store.current?.name ?? "no signal").toUpperCase(),
+  loci: store.geneList.length,
+  backend: (store.backend || "init").toUpperCase(),
+}));
+
 onMounted(() => void store.init());
 </script>
 
@@ -27,6 +33,23 @@ onMounted(() => void store.init());
     <GenomeViewer />
     <TopBar />
 
+    <!-- Holographic HUD frame -->
+    <div class="hud">
+      <span class="hud-corner tl" />
+      <span class="hud-corner tr" />
+      <span class="hud-corner bl" />
+      <span class="hud-corner br" />
+      <div class="hud-readout mono">
+        <span class="accent">GENETIQ</span>
+        <span class="sep">//</span>
+        <span>{{ readout.organism }}</span>
+        <span class="sep">//</span>
+        <span>{{ readout.loci }} LOCI</span>
+        <span class="sep">//</span>
+        <span>{{ readout.backend }}</span>
+      </div>
+    </div>
+
     <aside class="drawer glass scroll">
       <GenePanel v-show="store.activePanel === 'inspect'" />
       <StudioPanel v-show="store.activePanel === 'studio'" />
@@ -34,7 +57,7 @@ onMounted(() => void store.init());
     </aside>
 
     <div class="legend glass">
-      <span class="label">Legend</span>
+      <span class="label">Loci classification</span>
       <div v-for="l in legend" :key="l.biotype" class="legend__row">
         <span class="legend__dot" :style="{ background: rgbToHex(BIOTYPE_PALETTE[l.biotype]) }" />
         {{ l.label }}
@@ -50,7 +73,7 @@ onMounted(() => void store.init());
       <div v-if="store.error" class="toast error" @click="store.error = null">{{ store.error }}</div>
     </transition>
     <transition name="fade">
-      <div v-if="store.busy" class="busy"><span class="spinner" /> working…</div>
+      <div v-if="store.busy" class="busy mono"><span class="spinner" /> PROCESSING</div>
     </transition>
   </div>
 </template>
@@ -61,89 +84,151 @@ onMounted(() => void store.init());
   inset: 0;
 }
 
+.hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 12;
+}
+
+.hud-corner {
+  position: fixed;
+  width: 24px;
+  height: 24px;
+  border-color: var(--line-strong);
+  border-style: solid;
+  opacity: 0.65;
+}
+
+.tl {
+  top: 9px;
+  left: 9px;
+  border-width: 1px 0 0 1px;
+}
+.tr {
+  top: 9px;
+  right: 9px;
+  border-width: 1px 1px 0 0;
+}
+.bl {
+  bottom: 9px;
+  left: 9px;
+  border-width: 0 0 1px 1px;
+}
+.br {
+  bottom: 9px;
+  right: 9px;
+  border-width: 0 1px 1px 0;
+}
+
+.hud-readout {
+  position: fixed;
+  top: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 11px;
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  color: var(--muted);
+  align-items: center;
+}
+
+.hud-readout .accent {
+  color: var(--accent);
+}
+
+.hud-readout .sep {
+  color: var(--accent-dim);
+}
+
 .drawer {
   position: fixed;
   top: 86px;
   right: 14px;
-  bottom: 14px;
-  width: 360px;
-  padding: 16px;
+  bottom: 50px;
+  width: 358px;
+  padding: 18px 16px;
   z-index: 15;
 }
 
 .legend {
   position: fixed;
   left: 14px;
-  bottom: 14px;
-  padding: 12px 14px;
+  bottom: 50px;
+  padding: 13px 15px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  font-size: 12px;
+  gap: 7px;
+  font-size: 11px;
   z-index: 15;
 }
 
 .legend__row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   color: var(--muted);
+  letter-spacing: 0.04em;
 }
 
 .legend__dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  box-shadow: 0 0 6px currentColor;
+  box-shadow: 0 0 5px currentColor;
 }
 
 .legend__dot.mut {
-  background: #ff334d;
+  background: #ff5a76;
 }
 
 .legend__dot.path {
-  background: #ffd84d;
+  background: var(--amber);
 }
 
 .toast {
   position: fixed;
-  bottom: 22px;
+  bottom: 18px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(70, 224, 160, 0.16);
-  border: 1px solid rgba(70, 224, 160, 0.4);
-  color: #c7ffe6;
-  padding: 9px 18px;
-  border-radius: 999px;
-  font-size: 13px;
+  background: rgba(127, 232, 192, 0.1);
+  border: 1px solid rgba(127, 232, 192, 0.4);
+  color: var(--good);
+  padding: 8px 18px;
+  border-radius: var(--radius);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   z-index: 30;
   backdrop-filter: blur(8px);
 }
 
 .toast.error {
-  background: rgba(255, 90, 118, 0.18);
-  border-color: rgba(255, 90, 118, 0.5);
-  color: #ffc8d1;
+  background: rgba(255, 122, 144, 0.12);
+  border-color: rgba(255, 122, 144, 0.45);
+  color: var(--danger);
   cursor: pointer;
 }
 
 .busy {
   position: fixed;
-  top: 90px;
+  top: 92px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
-  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--accent-dim);
   z-index: 30;
 }
 
 .spinner {
-  width: 13px;
-  height: 13px;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(143, 227, 255, 0.25);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;

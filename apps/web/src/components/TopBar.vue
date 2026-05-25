@@ -98,15 +98,16 @@ function overview(): void {
 }
 
 .brand__name {
-  font-weight: 800;
-  letter-spacing: 0.22em;
+  font-weight: 300;
+  letter-spacing: 0.34em;
   font-size: 15px;
 }
 
 .brand__sub {
-  font-size: 10px;
+  font-size: 9px;
   color: var(--muted);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
 }
 
 .selector {
@@ -126,11 +127,9 @@ function overview(): void {
 }
 
 .tabs button.active {
-  background: linear-gradient(120deg, rgba(76, 194, 255, 0.25), rgba(178, 102, 255, 0.25));
-  border-color: var(--border-strong);
-}
-
-.ghost {
-  background: transparent;
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(143, 227, 255, 0.12);
+  box-shadow: inset 0 0 14px rgba(143, 227, 255, 0.15);
 }
 </style>

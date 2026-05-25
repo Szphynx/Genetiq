@@ -112,7 +112,9 @@ const expressionPct = computed(() =>
 
 .genome-head__title {
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 300;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .genome-head__sub {
@@ -135,14 +137,15 @@ const expressionPct = computed(() =>
 }
 
 .gene {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--line);
   padding-top: 14px;
 }
 
 .gene__symbol {
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: 0.03em;
+  font-size: 25px;
+  font-weight: 200;
+  letter-spacing: 0.14em;
+  color: var(--accent);
 }
 
 .gene__name {
@@ -173,7 +176,7 @@ const expressionPct = computed(() =>
 
 .expr__fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  background: linear-gradient(90deg, var(--accent), var(--good));
 }
 
 .diseases {
@@ -234,13 +237,13 @@ const expressionPct = computed(() =>
 .empty {
   color: var(--muted);
   font-size: 13px;
-  border: 1px dashed var(--border);
+  border: 1px dashed var(--line);
   border-radius: 12px;
   padding: 14px;
 }
 
 .browser {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--line);
   padding-top: 12px;
 }
 
