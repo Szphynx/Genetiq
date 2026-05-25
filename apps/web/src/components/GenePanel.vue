@@ -74,7 +74,17 @@ const expressionPct = computed(() =>
     <div class="browser">
       <span class="label">Genes</span>
       <div v-for="chr in store.chromosomes" :key="chr.id" class="chr-group">
-        <div class="chr-name mono">chr {{ chr.name }}</div>
+        <div class="chr-head">
+          <button class="chr-name mono" @click="store.focusChromosome(chr.id)">chr {{ chr.name }}</button>
+          <button
+            v-if="store.current?.source === 'ensembl'"
+            class="chr-detail"
+            title="Load region detail (LOD)"
+            @click="store.drillChromosome(chr.id)"
+          >
+            ＋ detail
+          </button>
+        </div>
         <div class="gene-chips">
           <button
             v-for="g in chr.genes"
@@ -238,10 +248,30 @@ const expressionPct = computed(() =>
   margin-top: 8px;
 }
 
+.chr-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
 .chr-name {
   font-size: 11px;
   color: var(--muted);
-  margin-top: 6px;
+  background: transparent;
+  border: none;
+  padding: 2px 0;
+  cursor: pointer;
+}
+
+.chr-name:hover {
+  color: var(--accent);
+  background: transparent;
+}
+
+.chr-detail {
+  font-size: 10px;
+  padding: 2px 7px;
 }
 
 .gene-chips {

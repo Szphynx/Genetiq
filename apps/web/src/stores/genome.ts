@@ -4,6 +4,7 @@ import type { Gene, Genome, GenomeSummary, MutationType } from "@genetiq/core";
 import {
   NUCLEOTIDES,
   applyMutation,
+  cloneGenome,
   crossover,
   deleteGeneMutation,
   duplicateGeneMutation,
@@ -44,6 +45,9 @@ export const useGenomeStore = defineStore("genome", () => {
   const morphTargetGenome = shallowRef<Genome | null>(null);
   const morphT = ref(0);
 
+  // Camera drill-down request (consumed by the viewer)
+  const focusChrId = ref<string | null>(null);
+
   const mutatedIds = computed(() => (current.value ? mutatedGeneIds(current.value) : new Set<string>()));
   const chromosomes = computed(() => current.value?.chromosomes ?? []);
   const geneList = computed(() => chromosomes.value.flatMap((c) => c.genes));
@@ -80,7 +84,29 @@ export const useGenomeStore = defineStore("genome", () => {
   async function init(): Promise<void> {
     await run("", async () => {
       await refreshCatalog();
-      await loadGenome(DEFAULT_GENOME);
+      const deepLink = new URLSearchParams(window.location.search).get("genome");
+      await loadGenome(deepLink && catalog.value.some((c) => c.id === deepLink) ? deepLink : DEFAULT_GENOME);
+    });
+  }
+
+  function focusChromosome(chromosomeId: string): void {
+    focusChrId.value = chromosomeId;
+  }
+
+  /** LOD drill-down: fetch a detailed region for an Ensembl chromosome. */
+  async function drillChromosome(chromosomeId: string): Promise<void> {
+    const genome = current.value;
+    if (!genome || genome.source !== "ensembl") return;
+    const chr = genome.chromosomes.find((c) => c.id === chromosomeId);
+    if (!chr) return;
+    const speciesId = genome.id.replace(/^ensembl-/, "");
+    await run(`Loaded detail for chr ${chr.name}`, async () => {
+      const window = Math.min(chr.length, 20_000_000);
+      const genes = await api.ensemblRegion(speciesId, chr.name, 1, window, 200);
+      const next = cloneGenome(genome);
+      const target = next.chromosomes.find((c) => c.id === chromosomeId);
+      if (target) target.genes = genes;
+      replaceCurrent(next);
     });
   }
 
@@ -257,9 +283,10 @@ export const useGenomeStore = defineStore("genome", () => {
   return {
     catalog, current, selectedGene, selectedGeneId, activePanel, backend, busy, status, error,
     seed, mutationCount, generations, mixPartner,
-    morphTargetId, morphTargetGenome, morphT,
+    morphTargetId, morphTargetGenome, morphT, focusChrId,
     mutatedIds, chromosomes, geneList, references, creations,
     init, loadGenome, adoptGenome, selectGene, refreshCatalog, setMorphTarget,
+    focusChromosome, drillChromosome,
     mutateSelected, duplicateSelected, deleteSelected, resetCurrent,
     makeVariant, evolveCurrent, mixWith, importCsv, loadEnsembl, saveCurrent, deleteFromCatalog,
   };

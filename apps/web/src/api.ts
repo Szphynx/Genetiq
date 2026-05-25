@@ -57,4 +57,8 @@ export const api = {
     jsonFetch<Array<{ id: string; commonName: string; species: string }>>(`${BASE}/ensembl/species`),
   ensemblLoad: (body: { species: string; perChromosome?: number; maxChromosomes?: number }) =>
     jsonFetch<GenomeSummary>(`${BASE}/ensembl/load`, { method: "POST", body: JSON.stringify(body) }),
+  ensemblRegion: (species: string, chr: string, start: number, end: number, cap = 200) =>
+    jsonFetch<Gene[]>(
+      `${BASE}/ensembl/region?species=${encodeURIComponent(species)}&chr=${encodeURIComponent(chr)}&start=${start}&end=${end}&cap=${cap}`,
+    ),
 };

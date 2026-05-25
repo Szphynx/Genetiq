@@ -50,9 +50,19 @@ watch(
   () => store.selectedGeneId,
   (id, prev) => {
     if (!engine || !ready.value) return;
-    render();
+    engine.setSelected(id);
     if (id && id !== prev) engine.focusGene(id);
     else if (!id && prev) engine.focusOverview();
+  },
+);
+
+watch(
+  () => store.focusChrId,
+  (chrId) => {
+    if (chrId && engine && ready.value) {
+      engine.focusChromosome(chrId);
+      store.focusChrId = null;
+    }
   },
 );
 
