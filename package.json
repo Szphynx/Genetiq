@@ -4,11 +4,12 @@
   "private": true,
   "description": "Genetiq — a WebGPU 3D engine for exploring, mutating, and generatively reimagining genomes.",
   "type": "module",
+  "packageManager": "pnpm@9.15.9",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "build": "pnpm -r build",
+    "build": "pnpm --filter @genetiq/core build && pnpm --filter @genetiq/api build && pnpm --filter @genetiq/web build",
     "build:core": "pnpm --filter @genetiq/core build",
     "dev": "pnpm build:core && concurrently -n core,api,web -c magenta,blue,green \"pnpm --filter @genetiq/core dev\" \"pnpm --filter @genetiq/api dev\" \"pnpm --filter @genetiq/web dev\"",
     "dev:api": "pnpm --filter @genetiq/api dev",
