@@ -29,7 +29,8 @@ export const useGenomeStore = defineStore("genome", () => {
   const selectedGeneId = ref<string | null>(null);
 
   const activePanel = ref<Panel>("inspect");
-  const sheetOpen = ref(false); // mobile bottom-sheet open state
+  // Mobile bottom-sheet snap state.
+  const sheetSnap = ref<"closed" | "half" | "full">("closed");
   const backend = ref<string>("");
   const busy = ref(false);
   const status = ref<string>("");
@@ -162,7 +163,8 @@ export const useGenomeStore = defineStore("genome", () => {
       return;
     }
     activePanel.value = "inspect";
-    sheetOpen.value = true; // reveal the inspector (matters on mobile)
+    // Reveal the inspector at half height on mobile (keeps the 3D tappable).
+    if (sheetSnap.value === "closed") sheetSnap.value = "half";
     const local = findGene(current.value, geneId);
     selectedGene.value = local ?? null;
     // Enrich from the backend when the genome is a stored reference.
@@ -290,7 +292,7 @@ export const useGenomeStore = defineStore("genome", () => {
   }
 
   return {
-    catalog, current, selectedGene, selectedGeneId, activePanel, sheetOpen, backend, busy, status, error,
+    catalog, current, selectedGene, selectedGeneId, activePanel, sheetSnap, backend, busy, status, error,
     seed, mutationCount, generations, mixPartner,
     morphTargetId, morphTargetGenome, morphT, focusChrId, introNonce,
     mutatedIds, chromosomes, geneList, references, creations,

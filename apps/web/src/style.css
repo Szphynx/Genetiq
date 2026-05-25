@@ -489,3 +489,10 @@ select option {
   animation-iteration-count: 1 !important;
   transition-duration: 0.08s !important;
 }
+
+/* On phones the inspector sheet carries gene info; hide the floating card. */
+@media (max-width: 760px) {
+  .gene-card {
+    display: none !important;
+  }
+}

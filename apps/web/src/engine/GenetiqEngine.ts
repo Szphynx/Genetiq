@@ -381,15 +381,15 @@ export class GenetiqEngine {
     mesh.setEnabled(true);
     mesh.parent = node;
     mesh.position = pos;
-    const scale = gene.deleted ? 0.16 : 0.26 + v.size * 0.36;
+    const scale = gene.deleted ? 0.2 : 0.36 + v.size * 0.46;
     mesh.scaling.setAll(scale);
     mesh.isPickable = !gene.deleted;
     mesh.metadata = { geneId: gene.id };
 
     const color = toColor3(v.color);
     const mat = new StandardMaterial(`geneMat-${gene.id}`, this.scene);
-    mat.diffuseColor = color.scale(0.4);
-    mat.emissiveColor = color.scale(0.35 + v.emissive);
+    mat.diffuseColor = color.scale(0.5);
+    mat.emissiveColor = color.scale(0.5 + v.emissive);
     mat.specularColor = new Color3(0.2, 0.2, 0.25);
     if (gene.deleted) mat.alpha = 0.4;
     mesh.material = mat;

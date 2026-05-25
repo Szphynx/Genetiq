@@ -41,13 +41,69 @@ const mobileTabs: Array<{ id: Panel; label: string; icon: string }> = [
   { id: "gallery", label: "Gallery", icon: "▦" },
 ];
 
+type Snap = "closed" | "half" | "full";
+function snapPct(s: Snap): number {
+  return s === "full" ? 0 : s === "half" ? 52 : 100;
+}
+
+// Mobile "Scene": dismiss the sheet and pull back to the whole-genome view
+// so any gene can be tapped.
+function showScene(): void {
+  store.sheetSnap = "closed";
+  void store.selectGene(null);
+}
+
 function openPanel(p: Panel): void {
-  if (store.activePanel === p && store.sheetOpen) {
-    store.sheetOpen = false;
+  if (store.activePanel === p && store.sheetSnap !== "closed") {
+    store.sheetSnap = "closed";
   } else {
     store.activePanel = p;
-    store.sheetOpen = true;
+    if (store.sheetSnap === "closed") store.sheetSnap = "half";
   }
+}
+
+// --- Draggable bottom sheet (mobile) ---
+const dragPct = ref<number | null>(null);
+let dragStartY = 0;
+let dragStartPct = 0;
+let dragMoved = false;
+let sheetH = 1;
+
+const sheetStyle = computed(() => {
+  if (!isMobile.value) return {};
+  const pct = dragPct.value ?? snapPct(store.sheetSnap);
+  return { transform: `translateY(${pct}%)` };
+});
+
+function onHandleDown(e: PointerEvent): void {
+  if (!isMobile.value) return;
+  const sheet = (e.currentTarget as HTMLElement).closest(".drawer") as HTMLElement | null;
+  sheetH = sheet?.offsetHeight || window.innerHeight * 0.86;
+  dragStartY = e.clientY;
+  dragStartPct = snapPct(store.sheetSnap);
+  dragMoved = false;
+  dragPct.value = dragStartPct;
+  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  window.addEventListener("pointermove", onHandleMove);
+  window.addEventListener("pointerup", onHandleUp, { once: true });
+}
+
+function onHandleMove(e: PointerEvent): void {
+  const delta = e.clientY - dragStartY;
+  if (Math.abs(delta) > 6) dragMoved = true;
+  dragPct.value = Math.max(0, Math.min(100, dragStartPct + (delta / sheetH) * 100));
+}
+
+function onHandleUp(): void {
+  window.removeEventListener("pointermove", onHandleMove);
+  const pct = dragPct.value ?? 100;
+  if (!dragMoved) {
+    // Tap: toggle full <-> half.
+    store.sheetSnap = store.sheetSnap === "full" ? "half" : "full";
+  } else {
+    store.sheetSnap = pct < 26 ? "full" : pct < 72 ? "half" : "closed";
+  }
+  dragPct.value = null;
 }
 
 const isMobile = ref(false);
@@ -100,8 +156,14 @@ onBeforeUnmount(() => mq?.removeEventListener("change", onMq));
 
     <HudOverlay />
 
-    <aside class="drawer glass scroll" :class="{ open: store.sheetOpen }">
-      <button class="sheet-handle" aria-label="Toggle panel" @click="store.sheetOpen = !store.sheetOpen" />
+    <aside
+      class="drawer glass scroll"
+      :class="{ ['snap-' + store.sheetSnap]: true, dragging: dragPct !== null }"
+      :style="sheetStyle"
+    >
+      <div class="sheet-handle" aria-label="Drag to resize panel" @pointerdown="onHandleDown">
+        <span class="sheet-grip" />
+      </div>
       <transition name="panel" mode="out-in">
         <component :is="panelComponent" :key="store.activePanel" />
       </transition>
@@ -111,12 +173,12 @@ onBeforeUnmount(() => mq?.removeEventListener("change", onMq));
       <button
         v-for="t in mobileTabs"
         :key="t.id"
-        :class="{ active: store.activePanel === t.id && store.sheetOpen }"
+        :class="{ active: store.activePanel === t.id && store.sheetSnap !== 'closed' }"
         @click="openPanel(t.id)"
       >
         <span class="nav-icon">{{ t.icon }}</span>{{ t.label }}
       </button>
-      <button :class="{ active: !store.sheetOpen }" @click="store.sheetOpen = false">
+      <button :class="{ active: store.sheetSnap === 'closed' }" @click="showScene()">
         <span class="nav-icon">⬢</span>Scene
       </button>
     </nav>
@@ -360,26 +422,37 @@ onBeforeUnmount(() => mq?.removeEventListener("change", onMq));
     right: 0;
     bottom: 56px;
     width: auto;
-    height: 70vh;
-    padding: 8px 16px 16px;
-    border-radius: 14px 14px 0 0;
-    transform: translateY(calc(100% + 56px));
-    transition: transform 0.36s cubic-bezier(0.33, 1, 0.68, 1);
+    height: 86vh;
+    padding: 0 16px 16px;
+    border-radius: 16px 16px 0 0;
+    /* transform is set inline (snap %/drag); this just animates snaps */
+    transform: translateY(100%);
+    transition: transform 0.34s cubic-bezier(0.33, 1, 0.68, 1);
+    overscroll-behavior: contain;
   }
 
-  .drawer.open {
-    transform: translateY(0);
+  .drawer.dragging {
+    transition: none;
   }
 
   .sheet-handle {
-    display: block;
-    width: 44px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 30px;
+    margin-bottom: 4px;
+    touch-action: none;
+    cursor: grab;
+    position: sticky;
+    top: 0;
+  }
+
+  .sheet-grip {
+    width: 46px;
     height: 4px;
     border-radius: 4px;
-    border: none;
     background: var(--line-strong);
-    margin: 2px auto 10px;
-    padding: 0;
   }
 
   .mobile-nav {

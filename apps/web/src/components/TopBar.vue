@@ -60,6 +60,7 @@ function overview(): void {
 
     <button
       class="ghost icon-btn"
+      aria-label="Switch theme"
       v-tip="'Switch interface theme (Dossier / Holo)'"
       @click="settings.toggleTheme()"
     >
@@ -68,10 +69,10 @@ function overview(): void {
     <button class="ghost icon-btn" aria-label="Settings" v-tip="'Settings'" @click="settings.open = true">
       <span class="ico">⚙</span>
     </button>
-    <button class="ghost icon-btn" v-tip="'Play the cinematic fly-through'" @click="store.playIntro()">
+    <button class="ghost icon-btn" aria-label="Play intro" v-tip="'Play the cinematic fly-through'" @click="store.playIntro()">
       <span class="ico">▶</span><span class="hide-sm"> Intro</span>
     </button>
-    <button class="ghost icon-btn" v-tip="'Frame the whole genome'" @click="overview">
+    <button class="ghost icon-btn" aria-label="Overview" v-tip="'Frame the whole genome'" @click="overview">
       <span class="ico">⤢</span><span class="hide-sm"> Overview</span>
     </button>
 
