@@ -4,16 +4,19 @@ import {
   Color3,
   Color4,
   CubicEase,
+  DefaultRenderingPipeline,
   EasingFunction,
   Engine,
   GlowLayer,
   HemisphericLight,
+  ImageProcessingConfiguration,
   Matrix,
   Mesh,
   MeshBuilder,
   PointerEventTypes,
   PointLight,
   Quaternion,
+  QuinticEase,
   Scene,
   StandardMaterial,
   TransformNode,
@@ -101,6 +104,7 @@ export class GenetiqEngine {
   private camera!: ArcRotateCamera;
   private root!: TransformNode;
   private glow!: GlowLayer;
+  private pipeline?: DefaultRenderingPipeline;
   private geneTemplate!: Mesh;
   private halo!: Mesh;
 
@@ -129,6 +133,8 @@ export class GenetiqEngine {
   private morphT = 0;
   private morphActive = false;
   private introTimers: number[] = [];
+  private introActive = false;
+  private orbitSpeed = 0;
   private callbacks: EngineCallbacks = {};
   private pointerDown: { x: number; y: number } | null = null;
 
@@ -174,8 +180,33 @@ export class GenetiqEngine {
     const key = new PointLight("key", new Vector3(18, 26, 18), scene);
     key.intensity = 0.35;
 
-    this.glow = new GlowLayer("glow", scene, { blurKernelSize: 48 });
-    this.glow.intensity = 0.85;
+    // Slight, selective bloom — keeps emissive helices glowing without washing out.
+    this.glow = new GlowLayer("glow", scene, { blurKernelSize: 32 });
+    this.glow.intensity = 0.65;
+
+    // Film-grade post: crisp AA + ACES tone-map + subtle lens artefacts.
+    const pipeline = new DefaultRenderingPipeline("genetiqFx", true, scene, [camera]);
+    pipeline.bloomEnabled = false; // GlowLayer owns the glow
+    pipeline.fxaaEnabled = true;
+    pipeline.samples = 4;
+    pipeline.chromaticAberrationEnabled = true;
+    pipeline.chromaticAberration.aberrationAmount = 9;
+    pipeline.chromaticAberration.radialIntensity = 0.6;
+    pipeline.grainEnabled = true;
+    pipeline.grain.intensity = 4;
+    pipeline.grain.animated = true;
+    // DOF intentionally disabled — at this scene scale it softens the whole
+    // genome; crispness wins. The cinematic feel comes from the stack below.
+    pipeline.depthOfFieldEnabled = false;
+    pipeline.imageProcessingEnabled = true;
+    pipeline.imageProcessing.toneMappingEnabled = true;
+    pipeline.imageProcessing.toneMappingType = ImageProcessingConfiguration.TONEMAPPING_ACES;
+    pipeline.imageProcessing.exposure = 1.05;
+    pipeline.imageProcessing.contrast = 1.15;
+    pipeline.imageProcessing.vignetteEnabled = true;
+    pipeline.imageProcessing.vignetteWeight = 2.4;
+    pipeline.imageProcessing.vignetteColor = new Color4(0, 0.01, 0.03, 0);
+    this.pipeline = pipeline;
 
     this.root = new TransformNode("genomeRoot", scene);
 
@@ -514,8 +545,11 @@ export class GenetiqEngine {
   }
 
   focusOverview(): void {
+    this.orbitSpeed = 0;
     this.setFocusChromosome(null);
-    this.animateCamera(Vector3.Zero(), this.ringRadius * 2.3 + 14, Math.PI / 2.25, this.camera.alpha);
+    this.animateCamera(Vector3.Zero(), this.ringRadius * 2.3 + 14, Math.PI / 2.25, this.camera.alpha, {
+      frames: this.introActive ? 90 : 55,
+    });
     this.idleSpin = true;
   }
   focusGene(geneId: string): void {
@@ -524,39 +558,70 @@ export class GenetiqEngine {
     this.idleSpin = false;
     this.setFocusChromosome(entry.chrId);
     const pos = Vector3.TransformCoordinates(entry.localPos, entry.node.getWorldMatrix());
-    this.animateCamera(pos, 5, Math.PI / 2.5);
+    this.animateCamera(pos, 5, Math.PI / 2.5, undefined, { frames: this.introActive ? 100 : 55 });
   }
   focusChromosome(chromosomeId: string): void {
     const node = this.chromosomeNodes.get(chromosomeId);
     if (!node) return;
     this.idleSpin = false;
     this.setFocusChromosome(chromosomeId);
-    this.animateCamera(node.getAbsolutePosition().clone(), 12, Math.PI / 2.4);
+    this.animateCamera(node.getAbsolutePosition().clone(), 12, Math.PI / 2.4, undefined, {
+      frames: this.introActive ? 95 : 55,
+    });
   }
 
-  /** Cinematic fly-through: genome → chromosome → gene → base pairs. */
+  /** Cinematic fly-through: genome → chromosome → gene → base pairs → orbit. */
   playIntro(): void {
     this.clearIntro();
     const it = this.geneLookup.entries().next();
     const first = it.done ? null : it.value;
 
+    this.introActive = true;
+    this.orbitSpeed = 0;
     this.idleSpin = false;
     this.setSelected(null);
     this.setFocusChromosome(null);
-    this.camera.radius = this.ringRadius * 3.4 + 26;
-    this.camera.beta = Math.PI / 2.05;
 
+    // Establishing shot: far, slightly raised, off-angle.
+    this.camera.radius = this.ringRadius * 3.8 + 30;
+    this.camera.beta = Math.PI / 2.0;
+    const startAlpha = this.camera.alpha;
     const overviewRadius = this.ringRadius * 2.3 + 14;
-    this.introTimers.push(
-      window.setTimeout(() => this.animateCamera(Vector3.Zero(), overviewRadius, Math.PI / 2.25), 150),
+
+    const quint = new QuinticEase();
+    quint.setEasingMode(EasingFunction.EASINGMODE_EASEINOUT);
+
+    const at = (ms: number, fn: () => void): void => {
+      this.introTimers.push(window.setTimeout(fn, ms));
+    };
+
+    // Beat 1: slow, majestic descent into the overview with a gentle rotation.
+    at(200, () =>
+      this.animateCamera(Vector3.Zero(), overviewRadius, Math.PI / 2.2, startAlpha + 0.55, {
+        frames: 130,
+        ease: quint,
+      }),
     );
+
     if (first) {
       const [geneId, entry] = first;
-      this.introTimers.push(window.setTimeout(() => this.focusChromosome(entry.chrId), 2100));
-      // Route through onPick so the store selects the gene (card + inspector).
-      this.introTimers.push(window.setTimeout(() => this.callbacks.onPick?.(geneId), 4300));
+      // Beat 2 (hold, then push to the chromosome).
+      at(2900, () => this.focusChromosome(entry.chrId));
+      // Beat 3 (hold to read the helix, then settle on the gene + base pairs).
+      at(5600, () => this.callbacks.onPick?.(geneId));
+      // Beat 4: begin a slow orbit around the gene, then end the intro.
+      at(7600, () => {
+        this.orbitSpeed = 0.16;
+      });
+      at(16000, () => {
+        this.orbitSpeed = 0;
+        this.introActive = false;
+      });
     } else {
-      this.introTimers.push(window.setTimeout(() => this.focusOverview(), 2100));
+      at(2900, () => this.focusOverview());
+      at(4000, () => {
+        this.introActive = false;
+      });
     }
   }
 
@@ -571,11 +636,21 @@ export class GenetiqEngine {
     return Vector3.TransformCoordinates(entry.localPos, entry.node.getWorldMatrix());
   }
 
-  private animateCamera(target: Vector3, radius: number, beta?: number, alpha?: number): void {
-    const ease = new CubicEase();
-    ease.setEasingMode(EasingFunction.EASINGMODE_EASEINOUT);
+  private animateCamera(
+    target: Vector3,
+    radius: number,
+    beta?: number,
+    alpha?: number,
+    opts: { frames?: number; ease?: EasingFunction } = {},
+  ): void {
+    let ease = opts.ease;
+    if (!ease) {
+      const c = new CubicEase();
+      c.setEasingMode(EasingFunction.EASINGMODE_EASEINOUT);
+      ease = c;
+    }
     const fps = 60;
-    const frames = 50;
+    const frames = opts.frames ?? 50;
     Animation.CreateAndStartAnimation("camTarget", this.camera, "target", fps, frames, this.camera.target.clone(), target, Animation.ANIMATIONLOOPMODE_CONSTANT, ease);
     Animation.CreateAndStartAnimation("camRadius", this.camera, "radius", fps, frames, this.camera.radius, radius, Animation.ANIMATIONLOOPMODE_CONSTANT, ease);
     if (beta !== undefined) Animation.CreateAndStartAnimation("camBeta", this.camera, "beta", fps, frames, this.camera.beta, beta, Animation.ANIMATIONLOOPMODE_CONSTANT, ease);
@@ -586,6 +661,15 @@ export class GenetiqEngine {
     const dt = this.engine.getDeltaTime() / 1000;
     this.elapsed += dt;
     if (this.idleSpin) this.root.rotation.y += dt * 0.06;
+    if (this.orbitSpeed !== 0) this.camera.alpha += dt * this.orbitSpeed;
+
+    // Adaptive depth of field: deep focus (everything crisp) when zoomed out,
+    // shallow (cinematic background fall-off) only when framed close on a gene.
+    if (this.pipeline?.depthOfFieldEnabled) {
+      const dist = Vector3.Distance(this.camera.position, this.camera.target);
+      this.pipeline.depthOfField.focusDistance = dist * 1000;
+      this.pipeline.depthOfField.fStop = clamp(1.8 + (this.camera.radius - 5) * 0.5, 1.8, 18);
+    }
 
     if (this.halo.isEnabled()) {
       this.halo.scaling.setAll(1 + Math.sin(this.elapsed * 4) * 0.07);
@@ -623,6 +707,10 @@ export class GenetiqEngine {
 
   private handlePointer(pi: PointerInfo): void {
     if (pi.type === PointerEventTypes.POINTERDOWN) {
+      // User takes control: stop any cinematic motion in progress.
+      this.orbitSpeed = 0;
+      this.introActive = false;
+      this.clearIntro();
       this.pointerDown = { x: this.scene.pointerX, y: this.scene.pointerY };
     } else if (pi.type === PointerEventTypes.POINTERUP) {
       if (!this.pointerDown) return;
@@ -642,6 +730,7 @@ export class GenetiqEngine {
 
   private clearGenome(): void {
     this.clearIntro();
+    this.orbitSpeed = 0;
     this.halo.setEnabled(false);
     this.halo.parent = null;
     this.halo.visibility = 1;
