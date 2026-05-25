@@ -194,3 +194,56 @@ select option {
   background: rgba(143, 227, 255, 0.25);
   border-radius: 6px;
 }
+
+/* Tooltip bubble (positioned by the v-tip directive) */
+.tip-bubble {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  max-width: 230px;
+  padding: 6px 10px;
+  font-size: 11px;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  background: rgba(6, 14, 22, 0.94);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+}
+
+.tip-bubble.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Smooth panel + card transitions */
+.panel-enter-active,
+.panel-leave-active {
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.panel-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.panel-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+.card-enter-active,
+.card-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.card-enter-from,
+.card-leave-to {
+  opacity: 0;
+  transform: translate(-50%, calc(-100% - 12px)) scale(0.96);
+}

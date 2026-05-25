@@ -21,6 +21,7 @@ const kindColor: Record<string, string> = {
         :key="g.id"
         class="item"
         :class="{ active: g.id === store.current?.id }"
+        v-tip="'Load ' + g.name + ' into the viewer'"
         @click="store.loadGenome(g.id)"
       >
         <div class="item__dot" :style="{ background: kindColor[g.kind] ?? 'var(--muted)' }" />
@@ -36,7 +37,7 @@ const kindColor: Record<string, string> = {
         <button
           v-if="g.kind !== 'reference'"
           class="del"
-          title="Delete"
+          v-tip="'Remove from the catalog'"
           @click.stop="store.deleteFromCatalog(g.id)"
         >
           ✕

@@ -109,6 +109,7 @@ function chromName(chrId: string): string {
   <div class="viewer">
     <canvas ref="canvas" />
 
+    <transition name="card">
     <div
       v-if="store.selectedGene && card.visible"
       class="gene-card glass"
@@ -135,7 +136,7 @@ function chromName(chrId: string): string {
         </span>
       </div>
     </div>
-
+    </transition>
   </div>
 </template>
 

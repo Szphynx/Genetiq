@@ -43,6 +43,15 @@ const gauges = computed(() => {
   ];
 });
 
+const tips: Record<string, string> = {
+  LOCI: "Genes currently rendered in the scene",
+  MUT: "Mutations applied to this genome",
+  GEN: "Generative generation of this genome",
+};
+function gaugeTip(label: string): string {
+  return tips[label] ?? label;
+}
+
 const ticks = Array.from({ length: 21 }, (_, i) => i);
 const caret = computed(() => {
   const y = 100 + Math.sin(frame.value * 0.012) * 86;
@@ -69,7 +78,7 @@ const caret = computed(() => {
     </svg>
 
     <div class="console mono">
-      <div class="gauge" v-for="g in gauges" :key="g.label">
+      <div class="gauge" v-for="g in gauges" :key="g.label" v-tip="gaugeTip(g.label)">
         <svg viewBox="0 0 44 44">
           <circle cx="22" cy="22" r="18" class="track" />
           <circle cx="22" cy="22" r="18" class="fill" :stroke-dasharray="arc(g.pct)" />
@@ -239,5 +248,13 @@ const caret = computed(() => {
   display: block;
   height: 100%;
   background: var(--accent);
+}
+
+/* Declutter on phones: keep the scanline, drop the ruler + console. */
+@media (max-width: 760px) {
+  .ruler,
+  .console {
+    display: none;
+  }
 }
 </style>

@@ -46,8 +46,8 @@ function overview(): void {
     </div>
 
     <div class="selector">
-      <span class="label">Genome</span>
-      <select v-model="currentId">
+      <span class="label hide-sm">Genome</span>
+      <select v-model="currentId" v-tip="'Switch organism or saved creation'">
         <option v-for="o in options" :key="o.id" :value="o.id">
           {{ o.name }}{{ o.kind !== "reference" ? " ·" : "" }} {{ o.kind !== "reference" ? o.kind : "" }}
         </option>
@@ -56,8 +56,12 @@ function overview(): void {
 
     <div class="spacer" />
 
-    <button class="ghost" @click="store.playIntro()">▶ Intro</button>
-    <button class="ghost" @click="overview">⤢ Overview</button>
+    <button class="ghost icon-btn" v-tip="'Play the cinematic fly-through'" @click="store.playIntro()">
+      <span class="ico">▶</span><span class="hide-sm"> Intro</span>
+    </button>
+    <button class="ghost icon-btn" v-tip="'Frame the whole genome'" @click="overview">
+      <span class="ico">⤢</span><span class="hide-sm"> Overview</span>
+    </button>
 
     <nav class="tabs">
       <button
@@ -132,5 +136,30 @@ function overview(): void {
   border-color: var(--accent);
   background: rgba(143, 227, 255, 0.12);
   box-shadow: inset 0 0 14px rgba(143, 227, 255, 0.15);
+}
+
+.icon-btn .ico {
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    height: 50px;
+    gap: 10px;
+    padding: 0 12px;
+  }
+  .brand__sub {
+    display: none;
+  }
+  .selector {
+    min-width: 0;
+    flex: 1;
+  }
+  .hide-sm {
+    display: none;
+  }
+  .tabs {
+    display: none;
+  }
 }
 </style>

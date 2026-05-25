@@ -59,11 +59,19 @@ const expressionPct = computed(() =>
       <div class="actions">
         <span class="label">Edit gene</span>
         <div class="actions__row">
-          <button @click="store.mutateSelected()">⚡ Mutate</button>
-          <button @click="store.duplicateSelected()">⧉ Duplicate</button>
-          <button class="danger" @click="store.deleteSelected()">⊘ Knock out</button>
+          <button v-tip="'Apply a random point mutation (substitution)'" @click="store.mutateSelected()">
+            ⚡ Mutate
+          </button>
+          <button v-tip="'Duplicate this gene (copy-number gain)'" @click="store.duplicateSelected()">
+            ⧉ Duplicate
+          </button>
+          <button class="danger" v-tip="'Knock out (delete) this gene'" @click="store.deleteSelected()">
+            ⊘ Knockout
+          </button>
         </div>
-        <button class="ghost full" @click="store.resetCurrent()">↺ Reset genome</button>
+        <button class="ghost full" v-tip="'Revert all edits to the original genome'" @click="store.resetCurrent()">
+          ↺ Reset genome
+        </button>
       </div>
     </div>
 
@@ -75,11 +83,13 @@ const expressionPct = computed(() =>
       <span class="label">Genes</span>
       <div v-for="chr in store.chromosomes" :key="chr.id" class="chr-group">
         <div class="chr-head">
-          <button class="chr-name mono" @click="store.focusChromosome(chr.id)">chr {{ chr.name }}</button>
+          <button class="chr-name mono" v-tip="'Frame this chromosome'" @click="store.focusChromosome(chr.id)">
+            chr {{ chr.name }}
+          </button>
           <button
             v-if="store.current?.source === 'ensembl'"
             class="chr-detail"
-            title="Load region detail (LOD)"
+            v-tip="'Load higher-resolution genes for this chromosome (LOD drill-down)'"
             @click="store.drillChromosome(chr.id)"
           >
             ＋ detail
@@ -228,6 +238,10 @@ const expressionPct = computed(() =>
 
 .actions__row button {
   flex: 1;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  padding: 8px 4px;
+  white-space: nowrap;
 }
 
 .full {

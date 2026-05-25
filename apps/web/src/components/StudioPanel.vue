@@ -50,8 +50,8 @@ function onMorphTarget(e: Event): void {
         <label>
           <span class="label">Seed</span>
           <div class="seed-row">
-            <input type="number" v-model.number="store.seed" />
-            <button class="ghost" title="Randomise" @click="randomizeSeed">⟳</button>
+            <input type="number" v-model.number="store.seed" v-tip="'Seed — same value reproduces the same result'" />
+            <button class="ghost" v-tip="'Randomise the seed'" @click="randomizeSeed">⟳</button>
           </div>
         </label>
         <label>
@@ -59,7 +59,12 @@ function onMorphTarget(e: Event): void {
           <input type="number" v-model.number="store.mutationCount" min="1" max="80" />
         </label>
       </div>
-      <button class="primary full" :disabled="store.busy || !store.current" @click="store.makeVariant()">
+      <button
+        class="primary full"
+        v-tip="'Create a mutated variant of the current genome and save it'"
+        :disabled="store.busy || !store.current"
+        @click="store.makeVariant()"
+      >
         ⚡ Generate variant
       </button>
       <div class="grid">
@@ -67,7 +72,12 @@ function onMorphTarget(e: Event): void {
           <span class="label">Generations</span>
           <input type="number" v-model.number="store.generations" min="1" max="30" />
         </label>
-        <button class="full self-end" :disabled="store.busy || !store.current" @click="store.evolveCurrent()">
+        <button
+          class="full self-end"
+          v-tip="'Apply several successive generations of mutation'"
+          :disabled="store.busy || !store.current"
+          @click="store.evolveCurrent()"
+        >
           🧬 Evolve lineage
         </button>
       </div>
@@ -82,6 +92,7 @@ function onMorphTarget(e: Event): void {
       </select>
       <button
         class="primary full"
+        v-tip="'Cross the current genome with the chosen partner'"
         :disabled="store.busy || !store.current || !store.mixPartner"
         @click="store.mixWith(store.mixPartner)"
       >
@@ -109,6 +120,7 @@ function onMorphTarget(e: Event): void {
       </div>
       <button
         class="full"
+        v-tip="'Fetch a real genome live from Ensembl (needs network access)'"
         :disabled="store.busy || !ensemblSpecies.length"
         @click="store.loadEnsembl(ensemblPick, ensemblPerChr)"
       >
@@ -146,7 +158,12 @@ function onMorphTarget(e: Event): void {
       <input v-model="datasetName" placeholder="Dataset name" />
       <input v-model="expressionColumn" placeholder="Expression column (optional)" />
       <textarea v-model="csv" rows="9" spellcheck="false" />
-      <button class="primary full" :disabled="store.busy" @click="store.importCsv(datasetName, csv, expressionColumn)">
+      <button
+        class="primary full"
+        v-tip="'Turn the pasted table into a procedural genome'"
+        :disabled="store.busy"
+        @click="store.importCsv(datasetName, csv, expressionColumn)"
+      >
         ✚ Generate from dataset
       </button>
     </section>
