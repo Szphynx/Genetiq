@@ -1,0 +1,24 @@
+{
+  "name": "@genetiq/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview --port 5173",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^7.34.0",
+    "@genetiq/core": "workspace:*",
+    "pinia": "^2.2.6",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.0",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.1",
+    "vue-tsc": "^2.1.10"
+  }
+}

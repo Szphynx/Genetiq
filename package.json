@@ -10,7 +10,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "build:core": "pnpm --filter @genetiq/core build",
-    "dev": "concurrently -n core,api,web -c magenta,blue,green \"pnpm --filter @genetiq/core dev\" \"pnpm --filter @genetiq/api dev\" \"pnpm --filter @genetiq/web dev\"",
+    "dev": "pnpm build:core && concurrently -n core,api,web -c magenta,blue,green \"pnpm --filter @genetiq/core dev\" \"pnpm --filter @genetiq/api dev\" \"pnpm --filter @genetiq/web dev\"",
     "dev:api": "pnpm --filter @genetiq/api dev",
     "dev:web": "pnpm --filter @genetiq/web dev",
     "typecheck": "pnpm -r typecheck",
@@ -19,5 +19,8 @@
   "devDependencies": {
     "concurrently": "^9.1.0",
     "typescript": "^5.6.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "vue-demi"]
   }
 }

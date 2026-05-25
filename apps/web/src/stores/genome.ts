@@ -1,0 +1,230 @@
+import { computed, shallowRef, ref } from "vue";
+import { defineStore } from "pinia";
+import type { Gene, Genome, GenomeSummary, MutationType } from "@genetiq/core";
+import {
+  NUCLEOTIDES,
+  applyMutation,
+  crossover,
+  deleteGeneMutation,
+  duplicateGeneMutation,
+  evolve as evolveGenome,
+  findGene,
+  generateVariant,
+  genomeFromTable,
+  mutatedGeneIds,
+  parseCsv,
+  substitutionAt,
+} from "@genetiq/core";
+import { api } from "@/api";
+
+export type Panel = "inspect" | "studio" | "gallery";
+
+const DEFAULT_GENOME = "homo-sapiens";
+
+export const useGenomeStore = defineStore("genome", () => {
+  const catalog = ref<GenomeSummary[]>([]);
+  const current = shallowRef<Genome | null>(null);
+  const selectedGene = shallowRef<Gene | null>(null);
+  const selectedGeneId = ref<string | null>(null);
+
+  const activePanel = ref<Panel>("inspect");
+  const backend = ref<string>("");
+  const busy = ref(false);
+  const status = ref<string>("");
+  const error = ref<string | null>(null);
+
+  // Studio params
+  const seed = ref(7);
+  const mutationCount = ref(10);
+  const generations = ref(5);
+  const mixPartner = ref<string>("");
+
+  const mutatedIds = computed(() => (current.value ? mutatedGeneIds(current.value) : new Set<string>()));
+  const chromosomes = computed(() => current.value?.chromosomes ?? []);
+  const geneList = computed(() => chromosomes.value.flatMap((c) => c.genes));
+  const references = computed(() => catalog.value.filter((g) => g.kind === "reference"));
+  const creations = computed(() => catalog.value.filter((g) => g.kind !== "reference"));
+
+  function flash(msg: string): void {
+    status.value = msg;
+    window.setTimeout(() => {
+      if (status.value === msg) status.value = "";
+    }, 2600);
+  }
+
+  async function run<T>(label: string, fn: () => Promise<T>): Promise<T | undefined> {
+    busy.value = true;
+    error.value = null;
+    try {
+      const result = await fn();
+      if (label) flash(label);
+      return result;
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e);
+      return undefined;
+    } finally {
+      busy.value = false;
+    }
+  }
+
+  async function refreshCatalog(): Promise<void> {
+    const list = await api.catalog();
+    if (list) catalog.value = list;
+  }
+
+  async function init(): Promise<void> {
+    await run("", async () => {
+      await refreshCatalog();
+      await loadGenome(DEFAULT_GENOME);
+    });
+  }
+
+  async function loadGenome(id: string): Promise<void> {
+    await run("", async () => {
+      const genome = await api.genome(id);
+      selectedGeneId.value = null;
+      selectedGene.value = null;
+      current.value = genome;
+    });
+  }
+
+  /** Load a genome object we already have client-side (variant/mix/procedural). */
+  function adoptGenome(genome: Genome): void {
+    selectedGeneId.value = null;
+    selectedGene.value = null;
+    current.value = genome;
+  }
+
+  async function selectGene(geneId: string | null): Promise<void> {
+    selectedGeneId.value = geneId;
+    if (!geneId || !current.value) {
+      selectedGene.value = null;
+      return;
+    }
+    const local = findGene(current.value, geneId);
+    selectedGene.value = local ?? null;
+    // Enrich from the backend when the genome is a stored reference.
+    if (local && current.value.kind === "reference") {
+      const detail = await api.gene(current.value.id, geneId).catch(() => null);
+      if (detail && selectedGeneId.value === geneId) selectedGene.value = detail.gene;
+    }
+  }
+
+  function replaceCurrent(next: Genome): void {
+    current.value = next;
+    if (selectedGeneId.value) selectedGene.value = findGene(next, selectedGeneId.value) ?? null;
+  }
+
+  function mutateSelected(): void {
+    const genome = current.value;
+    const gene = selectedGene.value;
+    if (!genome || !gene) return;
+    const ref = NUCLEOTIDES[Math.floor(Math.random() * NUCLEOTIDES.length)]!;
+    let alt = NUCLEOTIDES[Math.floor(Math.random() * NUCLEOTIDES.length)]!;
+    while (alt === ref) alt = NUCLEOTIDES[Math.floor(Math.random() * NUCLEOTIDES.length)]!;
+    const pos = gene.start + Math.floor((gene.end - gene.start) / 2);
+    replaceCurrent(applyMutation(genome, substitutionAt(gene, pos, ref, alt)));
+    flash(`Point mutation in ${gene.symbol}`);
+  }
+
+  function duplicateSelected(): void {
+    const genome = current.value;
+    const gene = selectedGene.value;
+    if (!genome || !gene) return;
+    replaceCurrent(applyMutation(genome, duplicateGeneMutation(gene)));
+    flash(`Duplicated ${gene.symbol}`);
+  }
+
+  function deleteSelected(): void {
+    const genome = current.value;
+    const gene = selectedGene.value;
+    if (!genome || !gene) return;
+    replaceCurrent(applyMutation(genome, deleteGeneMutation(gene)));
+    flash(`Knocked out ${gene.symbol}`);
+  }
+
+  async function resetCurrent(): Promise<void> {
+    const genome = current.value;
+    if (!genome) return;
+    const inCatalog = (id?: string): boolean => !!id && catalog.value.some((c) => c.id === id);
+    const id = inCatalog(genome.id)
+      ? genome.id
+      : inCatalog(genome.parents?.[0])
+        ? genome.parents![0]!
+        : DEFAULT_GENOME;
+    await loadGenome(id);
+  }
+
+  async function makeVariant(): Promise<void> {
+    const parent = current.value;
+    if (!parent) return;
+    await run("Variant generated", async () => {
+      const variant = generateVariant(parent, {
+        seed: seed.value,
+        mutationCount: mutationCount.value,
+      });
+      adoptGenome(variant);
+      await api.saveGenome(variant);
+      await refreshCatalog();
+    });
+  }
+
+  async function evolveCurrent(): Promise<void> {
+    const parent = current.value;
+    if (!parent) return;
+    await run(`Evolved ${generations.value} generations`, async () => {
+      const lineage = evolveGenome(parent, { generations: generations.value, seed: seed.value });
+      for (const g of lineage) await api.saveGenome(g);
+      const last = lineage[lineage.length - 1];
+      if (last) adoptGenome(last);
+      await refreshCatalog();
+    });
+  }
+
+  async function mixWith(partnerId: string): Promise<void> {
+    const a = current.value;
+    if (!a || !partnerId) return;
+    await run("Genomes mixed", async () => {
+      const b = await api.genome(partnerId);
+      const mixed = crossover(a, b, { seed: seed.value });
+      adoptGenome(mixed);
+      await api.saveGenome(mixed);
+      await refreshCatalog();
+    });
+  }
+
+  async function importCsv(name: string, csv: string, expressionColumn?: string): Promise<void> {
+    await run("Dataset genome created", async () => {
+      const table = parseCsv(csv);
+      const genome = genomeFromTable(table, { name: name || "Dataset", expressionColumn });
+      adoptGenome(genome);
+      await api.saveGenome(genome);
+      await refreshCatalog();
+    });
+  }
+
+  async function saveCurrent(): Promise<void> {
+    const genome = current.value;
+    if (!genome) return;
+    await run("Saved to gallery", async () => {
+      await api.saveGenome(genome);
+      await refreshCatalog();
+    });
+  }
+
+  async function deleteFromCatalog(id: string): Promise<void> {
+    await run("Removed from gallery", async () => {
+      await api.deleteGenome(id);
+      await refreshCatalog();
+    });
+  }
+
+  return {
+    catalog, current, selectedGene, selectedGeneId, activePanel, backend, busy, status, error,
+    seed, mutationCount, generations, mixPartner,
+    mutatedIds, chromosomes, geneList, references, creations,
+    init, loadGenome, adoptGenome, selectGene, refreshCatalog,
+    mutateSelected, duplicateSelected, deleteSelected, resetCurrent,
+    makeVariant, evolveCurrent, mixWith, importCsv, saveCurrent, deleteFromCatalog,
+  };
+});
