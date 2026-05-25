@@ -7,6 +7,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // Resolve the workspace core from source so the web build never depends
+      // on workspace symlinks or core's prebuilt dist (robust on Vercel).
+      "@genetiq/core": fileURLToPath(new URL("../../packages/core/src/index.ts", import.meta.url)),
     },
   },
   server: {

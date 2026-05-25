@@ -1,10 +1,13 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
     "lib": ["ES2022"],
-    "types": ["node"]
+    "types": ["node"],
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@genetiq/core": ["../../packages/core/src/index.ts"]
+    }
   },
   "include": ["src/**/*"]
 }
